@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SendSales.ai</title>
+    <link rel="icon" href="https://ohgcufkcrpehkvxavmhw.supabase.co/storage/v1/object/public/logo/x.png" />
+    <meta name="description" content="Seu CRM de estudos" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              primary: '#005C4B',
+              secondary: '#25D366',
+              accent: '#6366F1',
+              background: '#F3F4F6',
+              text: '#1F2937',
+            },
+            animation: {
+              'gradient-xy': 'gradient-xy 15s ease infinite',
+            },
+            keyframes: {
+              'gradient-xy': {
+                '0%, 100%': {
+                  'background-size': '400% 400%',
+                  'background-position': '0% 50%'
+                },
+                '50%': {
+                  'background-size': '400% 400%',
+                  'background-position': '100% 50%'
+                },
+              },
+            },
+          }
+        }
+      }
+    </script>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.10.1",
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.1",
+    "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.86.2",
+    "date-fns": "https://aistudiocdn.com/date-fns@^4.1.0",
+    "date-fns-tz": "https://aistudiocdn.com/date-fns-tz@^3.2.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="bg-background dark:bg-gray-900 text-text dark:text-gray-100 font-sans antialiased transition-colors duration-300">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
