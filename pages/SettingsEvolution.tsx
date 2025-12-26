@@ -84,7 +84,7 @@ const SettingsEvolution: React.FC = () => {
                     <input type="text" value={evolutionInstance} onChange={(e) => setEvolutionInstance(e.target.value)} placeholder="Ex: Principal" className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary/20 outline-none" />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">Token da Instância (Access Token)</label>
+                    <label className="block text-sm font-medium text-ray-600 dark:text-gray-400 mb-1">Token da Instância (Access Token)</label>
                     <div className="relative">
                         <input type={showEvolutionKey ? "text" : "password"} value={evolutionApiKey} onChange={(e) => setEvolutionApiKey(e.target.value)} placeholder="Token específico..." className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 pr-12 focus:ring-2 focus:ring-primary/20 outline-none" />
                         <button onClick={() => setShowEvolutionKey(!showEvolutionKey)} className="absolute right-3 top-2.5 text-xs font-bold text-gray-400 uppercase">{showEvolutionKey ? 'Ocultar' : 'Mostrar'}</button>

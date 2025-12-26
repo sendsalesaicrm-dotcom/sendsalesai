@@ -12,6 +12,7 @@ const Leads: React.FC = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const { currentOrganization } = useAuth();
   const { showToast } = useToast();
@@ -73,6 +74,50 @@ const Leads: React.FC = () => {
     }
   };
 
+  const handleExportCsv = async () => {
+    if (!leads || leads.length === 0) {
+      showToast('Nenhum lead para exportar.', 'info');
+      return;
+    }
+    setIsExporting(true);
+    try {
+      const headers = ['Nome', 'Telefone', 'Status', 'Tags', 'Última Ativ.', 'Email'];
+      const escape = (v: any) => {
+        if (v === null || v === undefined) return '';
+        const s = Array.isArray(v) ? v.join(';') : String(v);
+        return `"${s.replace(/"/g, '""')}"`;
+      };
+
+      const rows = leads.map(l => [
+        escape(l.name),
+        escape(l.phone),
+        escape(l.status),
+        escape(l.tags || []),
+        escape(l.last_active || ''),
+        escape((l as any).email || '')
+      ].join(','));
+
+      const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const now = new Date();
+      const pad = (n:number) => String(n).padStart(2,'0');
+      a.download = `leads_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast(`Exportados ${leads.length} leads.`, 'success');
+    } catch (err: any) {
+      console.error('Erro ao exportar CSV:', err);
+      showToast('Erro ao exportar CSV.', 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       
@@ -95,8 +140,12 @@ const Leads: React.FC = () => {
           >
               <Plus className="w-4 h-4" /> Novo Lead
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-              <Download className="w-4 h-4" /> Exportar CSV
+          <button
+            onClick={handleExportCsv}
+            disabled={isExporting || leads.length === 0}
+            className={`flex items-center gap-2 px-4 py-2 ${isExporting ? 'bg-primary text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200'} border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors`}
+          >
+            {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Exportar CSV
           </button>
         </div>
       </div>
