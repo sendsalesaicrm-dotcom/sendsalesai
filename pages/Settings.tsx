@@ -75,7 +75,15 @@ const Settings: React.FC = () => {
     const [isGeneratingQr, setIsGeneratingQr] = useState(false);
     const [qrCodeBase64, setQrCodeBase64] = useState<string | null>(null);
 
+  // Webhook Settings State
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [webhookEnabled, setWebhookEnabled] = useState(false);
+  const [webhookBase64, setWebhookBase64] = useState(true);
+  const [webhookByEvents, setWebhookByEvents] = useState(false);
+  const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
+
   // UI States
+  const [isProcessingWebhook, setIsProcessingWebhook] = useState(false);
   const [isSavingRegional, setIsSavingRegional] = useState(false);
   const [isSavingWhatsApp, setIsSavingWhatsApp] = useState(false);
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
@@ -435,6 +443,69 @@ const Settings: React.FC = () => {
       }
   };
 
+  const handleSetWebhook = async (instanceName: string, token: string) => {
+    setIsProcessingWebhook(true);
+    try {
+      const baseUrl = evolutionUrl.replace(/\/$/, '');
+      const response = await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': evolutionGlobalKey, // Using evolutionGlobalKey for authentication
+        },
+        body: JSON.stringify({
+          webhook: { // Encapsulated fields
+            enabled: webhookEnabled,
+            url: webhookUrl,
+            webhookByEvents: webhookByEvents,
+            webhookBase64: webhookBase64,
+            events: selectedEvents,
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao salvar webhook');
+      }
+
+      showToast('Webhook salvo com sucesso!', 'success');
+    } catch (error: any) {
+      showToast(error.message || 'Erro ao salvar webhook', 'error');
+    } finally {
+      setIsProcessingWebhook(false);
+    }
+  };
+
+  const handleFindWebhook = async (instanceName: string, token: string) => {
+    setIsProcessingWebhook(true);
+    try {
+      const baseUrl = evolutionUrl.replace(/\/$/, '');
+      const response = await fetch(`${baseUrl}/webhook/find/${instanceName}`, {
+        method: 'GET',
+        headers: {
+          'apikey': evolutionGlobalKey, // Using evolutionGlobalKey for authentication
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao buscar configuração do webhook');
+      }
+
+      const data = await response.json();
+      setWebhookUrl(data.url || '');
+      setWebhookEnabled(data.enabled || false);
+      setWebhookBase64(data.webhookBase64 || false);
+      setWebhookByEvents(data.webhookByEvents || false);
+      setSelectedEvents(data.events || []); // Always set to an array, even if empty
+
+      showToast('Configuração do webhook carregada!', 'success');
+    } catch (error: any) {
+      showToast(error.message || 'Erro ao buscar configuração do webhook', 'error');
+    } finally {
+      setIsProcessingWebhook(false);
+    }
+  };
+
   const contextValue = {
     timeZones,
     selectedZone, setSelectedZone,
@@ -445,7 +516,21 @@ const Settings: React.FC = () => {
     connectInstanceName, setConnectInstanceName, connectApiKey, setConnectApiKey, isGeneratingQr, qrCodeBase64, handleGetQrCode,
     handleCopyToken, showToast,
     // Evolution actions
-    isProcessingAction, handleSetPresence, handleGetConnectionStatus, handleLogoutInstance, handleDeleteInstance
+    isProcessingAction, handleSetPresence, handleGetConnectionStatus, handleLogoutInstance, handleDeleteInstance,
+    // Webhook actions
+    webhookUrl,
+    setWebhookUrl,
+    webhookEnabled,
+    setWebhookEnabled,
+    webhookBase64,
+    setWebhookBase64,
+    webhookByEvents,
+    setWebhookByEvents,
+    selectedEvents,
+    setSelectedEvents,
+    isProcessingWebhook,
+    handleSetWebhook,
+    handleFindWebhook,
   } as const;
 
   if (isAuthLoading) return (

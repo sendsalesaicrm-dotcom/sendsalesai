@@ -59,7 +59,16 @@ const SettingsEvolution: React.FC = () => {
     handleGetConnectionStatus, 
     handleLogoutInstance, 
     handleDeleteInstance, 
-    showToast
+    showToast,
+
+    // Webhook
+    webhookUrl, setWebhookUrl,
+    webhookEnabled, setWebhookEnabled,
+    webhookBase64, setWebhookBase64,
+    webhookByEvents, setWebhookByEvents,
+    selectedEvents, setSelectedEvents,
+    isProcessingWebhook,
+    handleSetWebhook, handleFindWebhook,
   } = ctx as any;
 
   return (
@@ -235,6 +244,7 @@ const SettingsEvolution: React.FC = () => {
                                               setEvolutionUrl(newInstanceBaseUrl.replace(/\/$/, ''));
                                               setEvolutionInstance(inst.name);
                                               setEvolutionApiKey(inst.token);
+                                              handleFindWebhook(inst.name, inst.token); // Sincroniza os campos de Webhook automaticamente
                                               showToast && showToast(`Dados de "${inst.name}" carregados!`, 'success');
                                           }} className="px-3 py-1 bg-primary text-white rounded text-xs font-bold hover:bg-[#004a3c] transition-all">USAR</button>
                                         </div>
@@ -297,9 +307,119 @@ const SettingsEvolution: React.FC = () => {
           </div>
         </div>
       </div>
-</div>
+
+      {/* 5. CONFIGURAÇÃO DE WEBHOOK */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
+        <div className="p-6 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+            <Server className="w-5 h-5 text-blue-500" /> Configuração de Webhook para: {evolutionInstance || 'Nenhuma instância selecionada'}
+          </h2>
+        </div>
+        <div className="p-8 space-y-6">
+          {(!evolutionInstance || !evolutionApiKey) ? (
+            <div className="text-center text-gray-500 dark:text-gray-400">
+              <p>Selecione uma instância e seu token para configurar o webhook.</p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">URL do Webhook</label>
+                  <input
+                    type="text"
+                    value={webhookUrl}
+                    onChange={(e) => setWebhookUrl(e.target.value)}
+                    placeholder="https://seuwebhook.com/webhook"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary/20 outline-none"
+                  />
+                </div>
+                
+                {/* Toggles de Configurações Rápidas */}
+                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={webhookEnabled}
+                      onChange={(e) => setWebhookEnabled(e.target.checked)}
+                      className="rounded border-gray-300 dark:border-gray-600 focus:ring-primary/20"
+                    />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Habilitar Webhook</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={webhookBase64}
+                      onChange={(e) => setWebhookBase64(e.target.checked)}
+                      className="rounded border-gray-300 dark:border-gray-600 focus:ring-primary/20"
+                    />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Enviar em Base64</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={webhookByEvents}
+                      onChange={(e) => setWebhookByEvents(e.target.checked)}
+                      className="rounded border-gray-300 dark:border-gray-600 focus:ring-primary/20"
+                    />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Webhook por Eventos</span>
+                  </label>
+                </div>
+
+                {/* Grade de Eventos */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Eventos</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {[ 
+                      "APPLICATION_STARTUP", "QRCODE_UPDATED", "MESSAGES_SET", 
+                      "MESSAGES_UPSERT", "MESSAGES_UPDATE", "MESSAGES_DELETE", 
+                      "SEND_MESSAGE", "CONTACTS_SET", "CONTACTS_UPSERT", 
+                      "CONTACTS_UPDATE", "PRESENCE_UPDATE", "CHATS_SET", 
+                      "CHATS_UPSERT", "CHATS_UPDATE", "CHATS_DELETE", 
+                      "GROUPS_UPSERT", "GROUP_UPDATE", "GROUP_PARTICIPANTS_UPDATE", 
+                      "CONNECTION_UPDATE", "LABELS_EDIT", "LABELS_ASSOCIATION", 
+                      "CALL", "TYPEBOT_START", "TYPEBOT_CHANGE_STATUS"
+                    ].map((event) => (
+                      <label key={event} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedEvents.includes(event)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedEvents([...selectedEvents, event]);
+                            } else {
+                              setSelectedEvents(selectedEvents.filter((ev) => ev !== event));
+                            }
+                          }}
+                          className="rounded border-gray-300 dark:border-gray-600 focus:ring-primary/20"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{event}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                <button
+                  onClick={() => handleFindWebhook(evolutionInstance, evolutionApiKey)}
+                  disabled={isProcessingWebhook || !evolutionInstance || !evolutionApiKey}
+                  className="px-6 py-2 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-lg font-bold flex items-center gap-2 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all shadow-md active:scale-95"
+                >
+                  {isProcessingWebhook ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} Consultar Atual
+                </button>
+                <button
+                  onClick={() => handleSetWebhook(evolutionInstance, evolutionApiKey)}
+                  disabled={isProcessingWebhook || !evolutionInstance || !evolutionApiKey}
+                  className="px-6 py-2 bg-primary text-white rounded-lg font-bold flex items-center gap-2 hover:bg-[#004a3c] transition-all shadow-md active:scale-95"
+                >
+                  {isProcessingWebhook ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} Salvar Webhook
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
   );
-};
+}
 
 export default SettingsEvolution;
-//2025
