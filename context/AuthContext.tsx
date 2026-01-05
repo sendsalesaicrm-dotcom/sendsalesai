@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { Session, User } from '@supabase/supabase-js';
 import { Organization, Profile } from '../types';
+// import useSettings from '../pages/Settings'; // Import useSettings
 
 interface AuthContextType {
   session: Session | null;

@@ -6,7 +6,7 @@ import LiveChat from './pages/LiveChat';
 import Campaigns from './pages/Campaigns';
 import Leads from './pages/Leads';
 import AIAgents from './pages/AIAgents';
-import Settings from './pages/Settings';
+import Settings, { SettingsProvider } from './pages/Settings';
 import SettingsOverview from './pages/SettingsOverview';
 import SettingsGeneral from './pages/SettingsGeneral';
 import SettingsMeta from './pages/SettingsMeta';
@@ -22,40 +22,40 @@ import { ThemeProvider } from './context/ThemeContext';
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <ToastProvider>
-        <HashRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<SignUp />} />
-            <Route path="/join" element={<JoinTeam />} />
-            
-            <Route element={
-              <ThemeProvider>
-                <ProtectedRoute />
-              </ThemeProvider>
-            }>
-              <Route path="/" element={<Layout />}>
-                <Route index element={<Dashboard />} />
-                <Route path="chat" element={<LiveChat />} />
-                <Route path="campaigns" element={<Campaigns />} />
-                <Route path="leads" element={<Leads />} />
-                <Route path="ai-agents" element={<AIAgents />} />
-                <Route path="team" element={<TeamSettings />} />
-                <Route path="settings" element={<Settings />}>
-                  <Route index element={<SettingsOverview />} />
-                  <Route path="general" element={<SettingsGeneral />} />
-                  <Route path="meta" element={<SettingsMeta />} />
-                  <Route path="evolution" element={<SettingsEvolution />} />
+    <ToastProvider>
+      <AuthProvider>
+        <SettingsProvider>
+          <HashRouter>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<SignUp />} />
+              <Route path="/join" element={<JoinTeam />} />
+              <Route element={
+                <ThemeProvider>
+                  <ProtectedRoute />
+                </ThemeProvider>
+              }>
+                <Route path="/" element={<Layout />}>
+                  <Route index element={<Dashboard />} />
+                  <Route path="chat" element={<LiveChat />} />
+                  <Route path="campaigns" element={<Campaigns />} />
+                  <Route path="leads" element={<Leads />} />
+                  <Route path="ai-agents" element={<AIAgents />} />
+                  <Route path="team" element={<TeamSettings />} />
+                  <Route path="settings" element={<Settings />}>
+                    <Route index element={<SettingsOverview />} />
+                    <Route path="general" element={<SettingsGeneral />} />
+                    <Route path="meta" element={<SettingsMeta />} />
+                    <Route path="evolution" element={<SettingsEvolution />} />
+                  </Route>
                 </Route>
               </Route>
-            </Route>
-
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </HashRouter>
-      </ToastProvider>
-    </AuthProvider>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </HashRouter>
+        </SettingsProvider>
+      </AuthProvider>
+    </ToastProvider>
   );
 };
 

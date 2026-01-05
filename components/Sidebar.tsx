@@ -4,11 +4,13 @@ import { LayoutDashboard, MessageSquareText, Megaphone, Users, Bot, Settings, Lo
 import { formatInTimeZone } from 'date-fns-tz';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useSettings } from '../pages/Settings';
 
 const Sidebar: React.FC = () => {
   const [dateTime, setDateTime] = useState({ time: '', date: '' });
   const { logout, userRole } = useAuth();
   const { isDarkMode, toggleTheme } = useTheme();
+  const { clearAllDrafts } = useSettings();
 
   // RBAC: Agents can only see Dashboard, Chat and Leads
   const isAgent = userRole === 'agent';
@@ -133,7 +135,10 @@ const Sidebar: React.FC = () => {
         )}
         
         <button 
-          onClick={logout}
+          onClick={() => {
+            logout();
+            clearAllDrafts();
+          }}
           className="w-full flex items-center gap-3 px-4 py-3 text-red-300 hover:text-red-100 hover:bg-red-900/20 rounded-lg transition-colors"
         >
           <LogOut className="w-5 h-5" />
