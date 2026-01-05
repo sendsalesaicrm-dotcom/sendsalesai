@@ -110,6 +110,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const { showToast } = useToast();
   const { currentOrganization, isLoading: isAuthLoading } = useAuth();
 
+  // Adicione este useEffect para garantir a limpeza no logout
+  useEffect(() => {
+    // Se a autenticação terminar de carregar e não houver uma organização ativa, limpa tudo.
+    if (!isAuthLoading && !currentOrganization) {
+      clearAllDrafts();
+    }
+  }, [currentOrganization, isAuthLoading]);
   // Regional Settings State
   const defaultTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const [selectedZone, setSelectedZone] = useState<string>(() => {
