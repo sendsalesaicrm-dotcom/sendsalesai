@@ -417,7 +417,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
     setIsCreatingInstance(true);
     try {
-      const baseUrl = newInstanceBaseUrl.replace(/\/$/, '');
+      const baseUrl = ensureAbsoluteUrl(newInstanceBaseUrl || evolutionUrl);
       const response = await fetch(`${baseUrl}/instance/create`, {
         method: 'POST',
         headers: {
@@ -460,7 +460,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setFetchedInstances([]); // Limpa a tabela antes de buscar
 
     try {
-      const baseUrl = newInstanceBaseUrl.replace(/\/$/, '');
+      const baseUrl = ensureAbsoluteUrl(newInstanceBaseUrl || evolutionUrl);
       const response = await fetch(`${baseUrl}/instance/fetchInstances`, {
         method: 'GET',
         headers: {
@@ -493,7 +493,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setIsGeneratingQr(true);
     setQrCodeBase64(null);
     try {
-      const baseUrl = newInstanceBaseUrl.replace(/\/$/, '');
+      const baseUrl = ensureAbsoluteUrl(newInstanceBaseUrl || evolutionUrl);
       const response = await fetch(`${baseUrl}/instance/connect/${connectInstanceName}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json', 'apikey': connectApiKey }
@@ -521,10 +521,22 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return url.replace(/\/+$/, '');
   };
 
+  // Ensure URL is absolute and well-formed for browser fetches
+  const ensureAbsoluteUrl = (url: string) => {
+    let cleaned = (url || '').trim().replace(/^\/+/, ''); // remove starting slashes
+    if (cleaned.startsWith('https:/') && !cleaned.startsWith('https://')) {
+      cleaned = cleaned.replace('https:/', 'https://');
+    }
+    // Force https to avoid redirects that may cause 404
+    cleaned = cleaned.replace('http://', 'https://');
+    if (!cleaned.startsWith('http')) cleaned = 'https://' + cleaned;
+    return cleaned.replace(/\/+$/, ''); // remove trailing slashes
+  };
+
   const handleSetPresence = async (instanceName: string, presence: 'available' | 'unavailable', instanceToken?: string) => {
     if (!instanceName) return showToast('Nome da instância inválido.', 'error');
     if (!instanceToken) return showToast('Token da instância ausente.', 'error');
-    const base = normalizeBaseUrl(newInstanceBaseUrl || evolutionUrl);
+    const base = ensureAbsoluteUrl(newInstanceBaseUrl || evolutionUrl);
     if (!base) return showToast('Informe a URL do servidor Evolution.', 'error');
     setIsProcessingAction(true);
     try {
@@ -549,7 +561,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const handleGetConnectionStatus = async (instanceName: string, instanceToken?: string) => {
     if (!instanceName) return showToast('Nome da instância inválido.', 'error');
-    const base = normalizeBaseUrl(newInstanceBaseUrl || evolutionUrl);
+    const base = ensureAbsoluteUrl(newInstanceBaseUrl || evolutionUrl);
     if (!base) return showToast('Informe a URL do servidor Evolution.', 'error');
     setIsProcessingAction(true);
     try {
@@ -577,7 +589,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const handleLogoutInstance = async (instanceName: string, instanceToken?: string) => {
     if (!instanceName) return showToast('Nome da instância inválido.', 'error');
     if (!instanceToken) return showToast('Token da instância ausente.', 'error');
-    const base = normalizeBaseUrl(newInstanceBaseUrl || evolutionUrl);
+    const base = ensureAbsoluteUrl(newInstanceBaseUrl || evolutionUrl);
     if (!base) return showToast('Informe a URL do servidor Evolution.', 'error');
     setIsProcessingAction(true);
     try {
@@ -603,7 +615,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const handleDeleteInstance = async (instanceName: string) => {
     if (!instanceName) return showToast('Nome da instância inválido.', 'error');
     if (!evolutionGlobalKey) return showToast('Informe a Global API Key (chave administrativa).', 'error');
-    const base = normalizeBaseUrl(newInstanceBaseUrl || evolutionUrl);
+    const base = ensureAbsoluteUrl(newInstanceBaseUrl || evolutionUrl);
     if (!base) return showToast('Informe a URL do servidor Evolution.', 'error');
     setIsProcessingAction(true);
     try {
@@ -706,20 +718,20 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const handleSetWebhook = async (instanceName: string, token: string) => {
     setIsProcessingWebhook(true);
     try {
-      const baseUrl = evolutionUrl.replace(/\/$/, '');
-      const response = await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
+      const base = ensureAbsoluteUrl(evolutionUrl || newInstanceBaseUrl);
+      const response = await fetch(`${base}/webhook/set/${instanceName}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'apikey': evolutionGlobalKey, // Using evolutionGlobalKey for authentication
         },
         body: JSON.stringify({
-          webhook: { // Encapsulated fields
+          webhook: {
             enabled: webhookEnabled,
             url: webhookUrl,
             webhookByEvents: webhookByEvents,
             webhookBase64: webhookBase64,
-            events: selectedEvents,
+            events: Array.isArray(selectedEvents) ? selectedEvents : []
           }
         }),
       });
@@ -739,8 +751,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const handleFindWebhook = async (instanceName: string, token: string) => {
     setIsProcessingWebhook(true);
     try {
-      const baseUrl = evolutionUrl.replace(/\/$/, '');
-      const response = await fetch(`${baseUrl}/webhook/find/${instanceName}`, {
+      const base = ensureAbsoluteUrl(evolutionUrl || newInstanceBaseUrl);
+      const response = await fetch(`${base}/webhook/find/${instanceName}`, {
         method: 'GET',
         headers: {
           'apikey': evolutionGlobalKey, // Using evolutionGlobalKey for authentication
@@ -772,7 +784,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!evolutionUrl) return showToast('Informe a URL do servidor Evolution.', 'error');
     setIsProcessingSettings(true);
     try {
-      const baseUrl = evolutionUrl.replace(/\/$/, '');
+      const baseUrl = ensureAbsoluteUrl(newInstanceBaseUrl || evolutionUrl);
       const res = await fetch(`${baseUrl}/settings/find/${instanceName}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json', apikey: evolutionGlobalKey || token }
@@ -802,7 +814,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!evolutionUrl) return showToast('Informe a URL do servidor Evolution.', 'error');
     setIsProcessingSettings(true);
     try {
-      const baseUrl = evolutionUrl.replace(/\/$/, '');
+      const baseUrl = ensureAbsoluteUrl(newInstanceBaseUrl || evolutionUrl);
       const payload = {
         rejectCall,
         msgCall,

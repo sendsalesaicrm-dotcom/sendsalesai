@@ -379,31 +379,35 @@ const SettingsEvolution: React.FC = () => {
                 {/* Grade de Eventos */}
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Eventos</label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                    {[ 
-                      "APPLICATION_STARTUP", "QRCODE_UPDATED", "MESSAGES_SET", 
-                      "MESSAGES_UPSERT", "MESSAGES_UPDATE", "MESSAGES_DELETE", 
-                      "SEND_MESSAGE", "CONTACTS_SET", "CONTACTS_UPSERT", 
-                      "CONTACTS_UPDATE", "PRESENCE_UPDATE", "CHATS_SET", 
-                      "CHATS_UPSERT", "CHATS_UPDATE", "CHATS_DELETE", 
-                      "GROUPS_UPSERT", "GROUP_UPDATE", "GROUP_PARTICIPANTS_UPDATE", 
-                      "CONNECTION_UPDATE", "LABELS_EDIT", "LABELS_ASSOCIATION", 
+                  <div className="flex flex-col gap-2 max-h-[450px] overflow-y-auto pr-2 custom-scrollbar">
+                    {[
+                      "APPLICATION_STARTUP", "QRCODE_UPDATED", "MESSAGES_SET",
+                      "MESSAGES_UPSERT", "MESSAGES_UPDATE", "MESSAGES_DELETE",
+                      "SEND_MESSAGE", "CONTACTS_SET", "CONTACTS_UPSERT",
+                      "CONTACTS_UPDATE", "PRESENCE_UPDATE", "CHATS_SET",
+                      "CHATS_UPSERT", "CHATS_UPDATE", "CHATS_DELETE",
+                      "GROUPS_UPSERT", "GROUP_UPDATE", "GROUP_PARTICIPANTS_UPDATE",
+                      "CONNECTION_UPDATE", "LABELS_EDIT", "LABELS_ASSOCIATION",
                       "CALL", "TYPEBOT_START", "TYPEBOT_CHANGE_STATUS"
                     ].map((event) => (
-                      <label key={event} className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={selectedEvents.includes(event)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedEvents([...selectedEvents, event]);
-                            } else {
-                              setSelectedEvents(selectedEvents.filter((ev) => ev !== event));
-                            }
-                          }}
-                          className="rounded border-gray-300 dark:border-gray-600 focus:ring-primary/20"
-                        />
+                      <label key={event} className="flex items-center justify-between p-2 rounded-lg border border-gray-100 dark:border-gray-700">
                         <span className="text-sm text-gray-700 dark:text-gray-300">{event}</span>
+                        <div className="relative inline-flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedEvents.includes(event)}
+                            onChange={(e) => {
+                              const isChecked = e.target.checked;
+                              if (isChecked) {
+                                setSelectedEvents([...selectedEvents, event]);
+                              } else {
+                                setSelectedEvents(selectedEvents.filter((ev) => ev !== event));
+                              }
+                            }}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-200 rounded-full peer-focus:outline-none dark:bg-gray-700 peer-checked:bg-[#004a3c] peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                        </div>
                       </label>
                     ))}
                   </div>
