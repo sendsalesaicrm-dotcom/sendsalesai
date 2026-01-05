@@ -17,6 +17,7 @@ import {
   LogOut, 
   Trash2,
   AlertCircle
+  , Sliders
 } from 'lucide-react';
 
 const SettingsEvolution: React.FC = () => {
@@ -69,6 +70,16 @@ const SettingsEvolution: React.FC = () => {
     selectedEvents, setSelectedEvents,
     isProcessingWebhook,
     handleSetWebhook, handleFindWebhook,
+    // Configurações adicionais da instância (Evolution API)
+    rejectCall, setRejectCall,
+    msgCall, setMsgCall,
+    groupsIgnore, setGroupsIgnore,
+    alwaysOnline, setAlwaysOnline,
+    readMessages, setReadMessages,
+    readStatus, setReadStatus,
+    syncFullHistory, setSyncFullHistory,
+    isProcessingSettings,
+    handleSetSettings, handleFindSettings,
   } = ctx as any;
 
   return (
@@ -418,6 +429,92 @@ const SettingsEvolution: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* 6. CONFIGURAÇÕES DA INSTÂNCIA */}
+      {(evolutionInstance && evolutionApiKey) && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors mt-6">
+          <div className="p-6 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex items-center gap-2">
+            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+              <Sliders className="w-5 h-5 text-primary" /> Configurações da Instância
+            </h2>
+          </div>
+          <div className="p-8 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <label className="flex items-center justify-between p-3 rounded-lg border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all cursor-pointer">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Rejeitar Ligações</span>
+                <div className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" checked={rejectCall} onChange={e => setRejectCall(e.target.checked)} className="sr-only peer" />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#004a3c]"></div>
+                </div>
+              </label>
+
+              <label className="flex items-center justify-between p-3 rounded-lg border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all cursor-pointer">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Ignorar Grupos</span>
+                <div className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" checked={groupsIgnore} onChange={e => setGroupsIgnore(e.target.checked)} className="sr-only peer" />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#004a3c]"></div>
+                </div>
+              </label>
+
+              <label className="flex items-center justify-between p-3 rounded-lg border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all cursor-pointer">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Always Online</span>
+                <div className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" checked={alwaysOnline} onChange={e => setAlwaysOnline(e.target.checked)} className="sr-only peer" />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#004a3c]"></div>
+                </div>
+              </label>
+
+              <label className="flex items-center justify-between p-3 rounded-lg border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all cursor-pointer">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Marcar Mensagens como Lidas</span>
+                <div className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" checked={readMessages} onChange={e => setReadMessages(e.target.checked)} className="sr-only peer" />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#004a3c]"></div>
+                </div>
+              </label>
+
+              <label className="flex items-center justify-between p-3 rounded-lg border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all cursor-pointer">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Marcar Status como Lido</span>
+                <div className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" checked={readStatus} onChange={e => setReadStatus(e.target.checked)} className="sr-only peer" />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#004a3c]"></div>
+                </div>
+              </label>
+
+              <label className="flex items-center justify-between p-3 rounded-lg border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all cursor-pointer">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Sincronizar Histórico Completo</span>
+                <div className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" checked={syncFullHistory} onChange={e => setSyncFullHistory(e.target.checked)} className="sr-only peer" />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#004a3c]"></div>
+                </div>
+              </label>
+            </div>
+
+            {rejectCall && (
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mensagem ao Rejeitar Ligação</label>
+                <input type="text" value={msgCall} onChange={e => setMsgCall(e.target.value)} placeholder="Ex: Não aceitamos ligações neste número." className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary/20 outline-none" />
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+              <button
+                onClick={() => handleFindSettings(evolutionInstance, evolutionApiKey)}
+                disabled={isProcessingSettings || !evolutionInstance || !evolutionApiKey}
+                className="px-6 py-2 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-lg font-bold flex items-center gap-2 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all shadow-md active:scale-95"
+              >
+                {isProcessingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} Consultar Configurações
+              </button>
+              <button
+                onClick={() => handleSetSettings(evolutionInstance, evolutionApiKey)}
+                disabled={isProcessingSettings || !evolutionInstance || !evolutionApiKey}
+                className="px-6 py-2 bg-primary text-white rounded-lg font-bold flex items-center gap-2 hover:bg-[#004a3c] transition-all shadow-md active:scale-95"
+              >
+                {isProcessingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} Salvar Configurações
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

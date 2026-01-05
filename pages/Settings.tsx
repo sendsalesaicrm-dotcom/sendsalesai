@@ -102,6 +102,24 @@ interface SettingsContextType {
   handleSetWebhook: (instanceName: string, token: string) => Promise<void>;
   handleFindWebhook: (instanceName: string, token: string) => Promise<void>;
   clearAllDrafts: () => void;
+  // Evolution instance settings (additional)
+  rejectCall: boolean;
+  setRejectCall: (v: boolean) => void;
+  groupsIgnore: boolean;
+  setGroupsIgnore: (v: boolean) => void;
+  alwaysOnline: boolean;
+  setAlwaysOnline: (v: boolean) => void;
+  readMessages: boolean;
+  setReadMessages: (v: boolean) => void;
+  readStatus: boolean;
+  setReadStatus: (v: boolean) => void;
+  syncFullHistory: boolean;
+  setSyncFullHistory: (v: boolean) => void;
+  msgCall: string;
+  setMsgCall: (v: string) => void;
+  isProcessingSettings: boolean;
+  handleSetSettings: (instanceName: string, token: string) => Promise<void>;
+  handleFindSettings: (instanceName: string, token: string) => Promise<void>;
 }
 
 export const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -200,6 +218,36 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const stored = localStorage.getItem('sendsales_selectedEvents');
     return stored ? JSON.parse(stored) : [];
   });
+
+  // --- ESTADOS: Configurações adicionais da instância (Evolution API) ---
+  const [rejectCall, setRejectCall] = useState<boolean>(() => {
+    const stored = localStorage.getItem('sendsales_rejectCall');
+    return stored ? JSON.parse(stored) : false;
+  });
+  const [groupsIgnore, setGroupsIgnore] = useState<boolean>(() => {
+    const stored = localStorage.getItem('sendsales_groupsIgnore');
+    return stored ? JSON.parse(stored) : false;
+  });
+  const [alwaysOnline, setAlwaysOnline] = useState<boolean>(() => {
+    const stored = localStorage.getItem('sendsales_alwaysOnline');
+    return stored ? JSON.parse(stored) : true; // default true
+  });
+  const [readMessages, setReadMessages] = useState<boolean>(() => {
+    const stored = localStorage.getItem('sendsales_readMessages');
+    return stored ? JSON.parse(stored) : false;
+  });
+  const [readStatus, setReadStatus] = useState<boolean>(() => {
+    const stored = localStorage.getItem('sendsales_readStatus');
+    return stored ? JSON.parse(stored) : false;
+  });
+  const [syncFullHistory, setSyncFullHistory] = useState<boolean>(() => {
+    const stored = localStorage.getItem('sendsales_syncFullHistory');
+    return stored ? JSON.parse(stored) : false;
+  });
+  const [msgCall, setMsgCall] = useState<string>(() => {
+    return localStorage.getItem('sendsales_msgCall') || '';
+  });
+  const [isProcessingSettings, setIsProcessingSettings] = useState<boolean>(false);
 
   // UI States
   const [isProcessingWebhook, setIsProcessingWebhook] = useState(false);
@@ -324,6 +372,35 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     localStorage.setItem('sendsales_selectedEvents', JSON.stringify(selectedEvents));
   }, [selectedEvents]);
+
+  // Persist new Evolution instance settings
+  useEffect(() => {
+    localStorage.setItem('sendsales_rejectCall', JSON.stringify(rejectCall));
+  }, [rejectCall]);
+
+  useEffect(() => {
+    localStorage.setItem('sendsales_groupsIgnore', JSON.stringify(groupsIgnore));
+  }, [groupsIgnore]);
+
+  useEffect(() => {
+    localStorage.setItem('sendsales_alwaysOnline', JSON.stringify(alwaysOnline));
+  }, [alwaysOnline]);
+
+  useEffect(() => {
+    localStorage.setItem('sendsales_readMessages', JSON.stringify(readMessages));
+  }, [readMessages]);
+
+  useEffect(() => {
+    localStorage.setItem('sendsales_readStatus', JSON.stringify(readStatus));
+  }, [readStatus]);
+
+  useEffect(() => {
+    localStorage.setItem('sendsales_syncFullHistory', JSON.stringify(syncFullHistory));
+  }, [syncFullHistory]);
+
+  useEffect(() => {
+    localStorage.setItem('sendsales_msgCall', msgCall);
+  }, [msgCall]);
 
   // --- LÓGICA DE CRIAÇÃO ---
   const generateRandomInstanceToken = useCallback(() => {
@@ -689,6 +766,70 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  // --- CONFIGURAÇÕES ADICIONAIS: Find / Set via Evolution API ---
+  const handleFindSettings = async (instanceName: string, token: string) => {
+    if (!instanceName) return showToast('Nome da instância inválido.', 'error');
+    if (!evolutionUrl) return showToast('Informe a URL do servidor Evolution.', 'error');
+    setIsProcessingSettings(true);
+    try {
+      const baseUrl = evolutionUrl.replace(/\/$/, '');
+      const res = await fetch(`${baseUrl}/settings/find/${instanceName}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json', apikey: evolutionGlobalKey || token }
+      });
+      if (!res.ok) throw new Error('Erro ao buscar configurações');
+      const data = await res.json();
+
+      setRejectCall(!!data.rejectCall);
+      setMsgCall(data.msgCall || '');
+      setGroupsIgnore(!!data.groupsIgnore);
+      setAlwaysOnline(data.alwaysOnline === undefined ? true : !!data.alwaysOnline);
+      setReadMessages(!!data.readMessages);
+      setReadStatus(!!data.readStatus);
+      setSyncFullHistory(!!data.syncFullHistory);
+
+      showToast('Configurações carregadas da instância.', 'success');
+    } catch (err: any) {
+      console.error('handleFindSettings', err);
+      showToast(err.message || 'Erro ao buscar configurações.', 'error');
+    } finally {
+      setIsProcessingSettings(false);
+    }
+  };
+
+  const handleSetSettings = async (instanceName: string, token: string) => {
+    if (!instanceName) return showToast('Nome da instância inválido.', 'error');
+    if (!evolutionUrl) return showToast('Informe a URL do servidor Evolution.', 'error');
+    setIsProcessingSettings(true);
+    try {
+      const baseUrl = evolutionUrl.replace(/\/$/, '');
+      const payload = {
+        rejectCall,
+        msgCall,
+        groupsIgnore,
+        alwaysOnline,
+        readMessages,
+        syncFullHistory,
+        readStatus
+      };
+      const res = await fetch(`${baseUrl}/settings/set/${instanceName}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: evolutionGlobalKey || token },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'Erro ao salvar configurações');
+      }
+      showToast('Configurações salvas na instância.', 'success');
+    } catch (err: any) {
+      console.error('handleSetSettings', err);
+      showToast(err.message || 'Erro ao salvar configurações.', 'error');
+    } finally {
+      setIsProcessingSettings(false);
+    }
+  };
+
   const clearAllDrafts = () => {
     localStorage.removeItem('sendsales_evolutionUrl');
     localStorage.removeItem('sendsales_evolutionApiKey');
@@ -724,6 +865,23 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setWebhookByEvents(false);
     setSelectedEvents([]);
 
+    // Clear additional instance settings
+    localStorage.removeItem('sendsales_rejectCall');
+    localStorage.removeItem('sendsales_groupsIgnore');
+    localStorage.removeItem('sendsales_alwaysOnline');
+    localStorage.removeItem('sendsales_readMessages');
+    localStorage.removeItem('sendsales_readStatus');
+    localStorage.removeItem('sendsales_syncFullHistory');
+    localStorage.removeItem('sendsales_msgCall');
+
+    setRejectCall(false);
+    setGroupsIgnore(false);
+    setAlwaysOnline(true);
+    setReadMessages(false);
+    setReadStatus(false);
+    setSyncFullHistory(false);
+    setMsgCall('');
+
     showToast('Todos os rascunhos limpos!', 'info');
   };
 
@@ -736,6 +894,17 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     evolutionGlobalKey, setEvolutionGlobalKey, newInstanceBaseUrl, setNewInstanceBaseUrl, newInstanceName, setNewInstanceName, newInstancePhone, setNewInstancePhone, newInstanceToken, generateRandomInstanceToken, handleCreateInstance, isCreatingInstance, showGlobalKey, setShowGlobalKey,
     connectInstanceName, setConnectInstanceName, connectApiKey, setConnectApiKey, isGeneratingQr, qrCodeBase64, handleGetQrCode,
     handleCopyToken, showToast,
+    // Evolution instance settings
+    rejectCall, setRejectCall,
+    groupsIgnore, setGroupsIgnore,
+    alwaysOnline, setAlwaysOnline,
+    readMessages, setReadMessages,
+    readStatus, setReadStatus,
+    syncFullHistory, setSyncFullHistory,
+    msgCall, setMsgCall,
+    isProcessingSettings,
+    handleSetSettings,
+    handleFindSettings,
     // Evolution actions
     isProcessingAction, handleSetPresence, handleGetConnectionStatus, handleLogoutInstance, handleDeleteInstance,
     // Webhook actions
