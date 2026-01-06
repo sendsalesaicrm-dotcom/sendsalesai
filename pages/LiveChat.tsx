@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
 const LiveChat: React.FC = () => {
+  const DEFAULT_AVATAR_URL = 'https://ohgcufkcrpehkvxavmhw.supabase.co/storage/v1/object/public/logo/avatar.png';
   const { currentOrganization } = useAuth();
   const { showToast } = useToast();
 
@@ -262,7 +263,7 @@ const LiveChat: React.FC = () => {
                   >
                     <div className="flex items-center gap-3">
                       <div className="relative">
-                        <img src={lead.avatar_url || 'https://via.placeholder.com/40'} alt={lead.name} className="w-10 h-10 rounded-full object-cover" />
+                        <img src={lead.avatar_url || DEFAULT_AVATAR_URL} alt={lead.name} className="w-10 h-10 rounded-full object-cover" />
                         {conv.unread_count > 0 && (
                           <div className="absolute -top-1 -right-1 w-5 h-5 bg-secondary text-white text-xs font-bold rounded-full flex items-center justify-center border-2 border-white dark:border-gray-900">
                             {conv.unread_count}
@@ -296,7 +297,7 @@ const LiveChat: React.FC = () => {
             <div className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shadow-sm z-10">
                 {activeLead ? (
                     <div className="flex items-center gap-3">
-                        <img src={activeLead.avatar_url || 'https://via.placeholder.com/40'} alt={activeLead.name} className="w-10 h-10 rounded-full object-cover" />
+                        <img src={activeLead.avatar_url || DEFAULT_AVATAR_URL} alt={activeLead.name} className="w-10 h-10 rounded-full object-cover" />
                         <div>
                             <h3 className="font-bold text-gray-800 dark:text-gray-100">{activeLead.name || activeLead.phone}</h3>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -421,7 +422,7 @@ const LiveChat: React.FC = () => {
         {activeLead ? (
           <div className="p-6 space-y-6">
             <div className="text-center">
-              <img src={activeLead.avatar_url || 'https://via.placeholder.com/80'} alt={activeLead.name} className="w-24 h-24 rounded-full mx-auto object-cover mb-3 border-4 border-gray-100 dark:border-gray-700" />
+              <img src={activeLead.avatar_url || DEFAULT_AVATAR_URL} alt={activeLead.name} className="w-24 h-24 rounded-full mx-auto object-cover mb-3 border-4 border-gray-100 dark:border-gray-700" />
               <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">{activeLead.name || activeLead.phone}</h2>
               <p className="text-gray-500 dark:text-gray-400 text-sm flex items-center justify-center gap-1 mt-1">
                 <Phone className="w-3 h-3" /> {activeLead.phone}
