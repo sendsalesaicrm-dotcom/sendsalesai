@@ -26,6 +26,9 @@ const LiveChat: React.FC = () => {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [notesDraft, setNotesDraft] = useState('');
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -172,6 +175,8 @@ const LiveChat: React.FC = () => {
     if (!activeChatId) {
         setMessages([]);
         setActiveLead(null);
+        setIsEditingNotes(false);
+        setNotesDraft('');
         return;
     }
 
@@ -210,6 +215,13 @@ const LiveChat: React.FC = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Keep notes draft in sync with the selected lead (but don't clobber while editing)
+  useEffect(() => {
+    if (!activeLead) return;
+    if (isEditingNotes) return;
+    setNotesDraft(activeLead.notes || '');
+  }, [activeLead?.id, activeLead?.notes, isEditingNotes]);
 
   // 3. Send Message Logic
   const handleSendMessage = async (content: string) => {
@@ -267,6 +279,47 @@ const LiveChat: React.FC = () => {
     }
   };
 
+  const handleSaveLeadNotes = async () => {
+    if (!currentOrganization) {
+      showToast('Erro: Organização não identificada.', 'error');
+      return;
+    }
+    if (!activeLead) return;
+
+    const leadId = activeLead.id;
+    const nextNotes = notesDraft;
+    const prevLead = activeLead;
+
+    setIsSavingNotes(true);
+
+    // Optimistic update
+    setActiveLead((prev) => (prev?.id === leadId ? { ...prev, notes: nextNotes } : prev));
+    setConversations((prev) =>
+      prev.map((c) => (c.id === leadId ? { ...c, lead: { ...(c.lead as any), notes: nextNotes } } : c))
+    );
+
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ notes: nextNotes })
+        .eq('id', leadId)
+        .eq('organization_id', currentOrganization.id);
+
+      if (error) throw error;
+
+      showToast('Notas salvas!', 'success');
+      setIsEditingNotes(false);
+    } catch (err) {
+      setActiveLead(prevLead);
+      setConversations((prev) =>
+        prev.map((c) => (c.id === leadId ? { ...c, lead: { ...(c.lead as any), notes: prevLead.notes } } : c))
+      );
+      showToast('Erro ao salvar notas.', 'error');
+    } finally {
+      setIsSavingNotes(false);
+    }
+  };
+
   const handleAiSuggestion = async () => {
     if (!activeChatId || !activeLead) return;
     setIsGeneratingSuggestion(true);
@@ -286,17 +339,17 @@ const LiveChat: React.FC = () => {
       />
 
       {/* LEFT COLUMN: Chat List */}
-      <div className="w-80 border-r border-gray-200 dark:border-gray-700 flex flex-col bg-gray-50 dark:bg-gray-900">
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <div className="flex justify-between items-center mb-4">
-             <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Conversas</h2>
-             <button 
-                onClick={() => setIsNewLeadModalOpen(true)}
-                className="p-1.5 bg-primary text-white rounded-lg hover:bg-[#004a3c] transition-colors shadow-sm"
-                title="Novo Lead"
-             >
-                <Plus className="w-4 h-4" />
-             </button>
+      <div className="w-80 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex flex-col">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Conversas</h2>
+            <button
+              type="button"
+              onClick={() => setIsNewLeadModalOpen(true)}
+              className="p-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
           </div>
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
@@ -527,12 +580,52 @@ const LiveChat: React.FC = () => {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Notas</label>
-                  <button className="text-xs text-primary hover:underline flex items-center gap-1">
-                    <Edit2 className="w-3 h-3" /> Editar
-                  </button>
+                  {isEditingNotes ? (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsEditingNotes(false);
+                          setNotesDraft(activeLead.notes || '');
+                        }}
+                        className="text-xs text-gray-500 hover:text-gray-700 dark:text-yellow-200 dark:hover:text-yellow-100"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveLeadNotes}
+                        disabled={isSavingNotes}
+                        className="text-xs text-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isSavingNotes ? 'Salvando...' : 'Salvar'}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNotesDraft(activeLead.notes || '');
+                        setIsEditingNotes(true);
+                      }}
+                      className="text-xs text-primary hover:underline flex items-center gap-1"
+                    >
+                      <Edit2 className="w-3 h-3" /> Editar
+                    </button>
+                  )}
                 </div>
                 <div className="bg-yellow-50 dark:bg-yellow-900/10 p-3 rounded-lg border border-yellow-100 dark:border-yellow-900/30 text-sm text-gray-700 dark:text-yellow-100 leading-relaxed min-h-[100px]">
-                  {activeLead.notes || "Sem notas disponíveis."}
+                  {isEditingNotes ? (
+                    <textarea
+                      value={notesDraft}
+                      onChange={(e) => setNotesDraft(e.target.value)}
+                      className="w-full bg-transparent border-none resize-none focus:ring-0 focus:outline-none text-sm text-gray-700 dark:text-yellow-100 leading-relaxed min-h-[100px]"
+                      rows={4}
+                      placeholder="Escreva notas sobre este lead..."
+                    />
+                  ) : (
+                    <span>{activeLead.notes || 'Sem notas disponíveis.'}</span>
+                  )}
                 </div>
               </div>
 
