@@ -91,6 +91,80 @@ const LiveChat: React.FC = () => {
     };
   }, [fetchConversations, activeChatId]);
 
+  // Realtime sync: keep lead status/details in sync with other screens (e.g. Leads Kanban)
+  useEffect(() => {
+    if (!currentOrganization) return;
+
+    const channel = supabase
+      .channel(`public:leads:org:${currentOrganization.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'leads',
+          filter: `organization_id=eq.${currentOrganization.id}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'DELETE') {
+            const deletedId = (payload.old as any)?.id as string | undefined;
+            if (!deletedId) return;
+            setConversations((prev) => prev.filter((c) => c.id !== deletedId));
+            setActiveLead((prev) => (prev?.id === deletedId ? null : prev));
+            return;
+          }
+
+          const row = payload.new as Lead;
+          if (!row?.id) return;
+
+          setConversations((prev) =>
+            prev.map((c) => (c.id === row.id ? { ...c, lead: { ...(c.lead as any), ...row } } : c))
+          );
+          setActiveLead((prev) => (prev?.id === row.id ? { ...prev, ...row } : prev));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentOrganization]);
+
+  const handleUpdateLeadStatus = async (leadId: string, newStatus: string) => {
+    if (!currentOrganization) {
+      showToast('Erro: Organização não identificada.', 'error');
+      return;
+    }
+
+    const prevLead = activeLead;
+
+    // optimistic UI
+    setActiveLead((prev) => (prev?.id === leadId ? { ...prev, status: newStatus } : prev));
+    setConversations((prev) =>
+      prev.map((c) => (c.id === leadId ? { ...c, lead: { ...(c.lead as any), status: newStatus } } : c))
+    );
+
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ status: newStatus })
+        .eq('id', leadId)
+        .eq('organization_id', currentOrganization.id);
+
+      if (error) throw error;
+      showToast('Status do lead atualizado!', 'success');
+    } catch (err) {
+      // revert on error
+      setActiveLead(prevLead);
+      if (prevLead) {
+        setConversations((prev) =>
+          prev.map((c) => (c.id === prevLead.id ? { ...c, lead: { ...(c.lead as any), status: prevLead.status } } : c))
+        );
+      }
+      showToast('Erro ao atualizar status do lead.', 'error');
+    }
+  };
+
   // 2. Fetch Messages
   useEffect(() => {
     if (!activeChatId) {
@@ -464,7 +538,8 @@ const LiveChat: React.FC = () => {
                 <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 block">Status</label>
                  <select 
                     className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-sm rounded-lg p-2.5 focus:ring-primary focus:border-primary"
-                    defaultValue={activeLead.status}
+                    value={activeLead.status}
+                    onChange={(e) => handleUpdateLeadStatus(activeLead.id, e.target.value)}
                  >
                     <option value="new">Novo Lead</option>
                     <option value="contacted">Contatado</option>

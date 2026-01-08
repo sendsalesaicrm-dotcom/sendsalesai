@@ -239,6 +239,45 @@ const Leads: React.FC = () => {
     fetchLeads();
   }, [fetchLeads]);
 
+  // Realtime sync: reflect lead status changes from other screens (e.g. LiveChat)
+  useEffect(() => {
+    if (!currentOrganization) return;
+
+    const channel = supabase
+      .channel(`public:leads:org:${currentOrganization.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'leads',
+          filter: `organization_id=eq.${currentOrganization.id}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'DELETE') {
+            const deletedId = (payload.old as any)?.id as string | undefined;
+            if (!deletedId) return;
+            setLeads((prev) => prev.filter((l) => l.id !== deletedId));
+            return;
+          }
+
+          const row = payload.new as Lead;
+          if (!row?.id) return;
+
+          setLeads((prev) => {
+            const exists = prev.some((l) => l.id === row.id);
+            const next = exists ? prev.map((l) => (l.id === row.id ? { ...l, ...row } : l)) : [row, ...prev];
+            return next.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentOrganization]);
+
   // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
