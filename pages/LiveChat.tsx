@@ -31,11 +31,13 @@ const LiveChat: React.FC = () => {
 
   // 1. Fetch Conversations (Leads)
   const fetchConversations = useCallback(async () => {
+    if (!currentOrganization) return;
     setIsLoadingConversations(true);
     try {
       const { data: leads, error } = await supabase
         .from('leads')
         .select('*')
+        .eq('organization_id', currentOrganization.id)
         .order('last_active', { ascending: false }); // Sort by last active
 
       if (error) throw error;
@@ -57,7 +59,7 @@ const LiveChat: React.FC = () => {
     } finally {
       setIsLoadingConversations(false);
     }
-  }, []);
+  }, [currentOrganization]);
 
   useEffect(() => {
     fetchConversations();
