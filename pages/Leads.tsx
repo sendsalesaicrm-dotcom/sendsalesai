@@ -8,8 +8,9 @@ import { useToast } from '../context/ToastContext';
 import NewLeadModal from '../components/NewLeadModal';
 import {
   DndContext,
-  closestCenter,
+  pointerWithin,
   PointerSensor,
+  useDroppable,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -76,16 +77,23 @@ type KanbanColumnProps = { id: string; title: string; leads: Lead[]; colorClass:
 
 // Kanban Column Component
 const KanbanColumn: React.FC<KanbanColumnProps> = ({ id, title, leads, colorClass }) => {
-  const { setNodeRef } = useSortable({ id });
+  const { setNodeRef } = useDroppable({ id });
 
   return (
-    <div ref={setNodeRef} className="flex-shrink-0 w-72 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
-      <div className={`p-3 font-bold text-sm flex justify-between items-center rounded-t-xl ${colorClass}`}>
-        {title}
-        <span className="text-xs font-normal">{leads.length}</span>
+    <div
+      ref={setNodeRef}
+      className="flex-shrink-0 w-72 flex flex-col h-full bg-gray-50/50 dark:bg-gray-900/20 rounded-xl border border-gray-200 dark:border-gray-800"
+    >
+      <div className="p-3 font-bold text-sm flex justify-between items-center border-b border-gray-200 dark:border-gray-700 rounded-t-xl bg-white dark:bg-gray-800">
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${colorClass.split(' ')[0]}`} />
+          <span className="text-gray-700 dark:text-gray-200">{title}</span>
+        </div>
+        <span className="text-xs font-medium text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">{leads.length}</span>
       </div>
+
       <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
-        <div className="p-2 space-y-2 min-h-[200px]">
+        <div className="p-3 space-y-3 overflow-y-auto flex-1 min-h-[150px]">
           {leads.map(lead => (
             <LeadCard key={lead.id} lead={lead} />
           ))}
@@ -163,34 +171,42 @@ const Leads: React.FC = () => {
     }
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    setActiveLead(null);
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
+    setActiveLead(null);
 
     if (!over) return;
 
-    const activeContainer = active.data.current?.sortable.containerId;
-    const overContainer = over.data.current?.sortable?.containerId || over.id;
-    
-    if (activeContainer !== overContainer) {
-      const leadId = active.id as string;
-      const newStatus = overContainer as string;
-      if (Object.keys(STATUS_MAP).includes(newStatus)) {
-        handleStatusChange(leadId, newStatus);
-      }
-    } else {
-      // Reordering within the same column
-      const activeId = active.id;
-      const overId = over.id;
+    const leadId = active.id as string;
+    const overId = over.id as string;
 
-      if (activeId !== overId) {
-        setLeads((items) => {
-          const oldIndex = items.findIndex(item => item.id === activeId);
-          const newIndex = items.findIndex(item => item.id === overId);
-          return arrayMove(items, oldIndex, newIndex);
-        });
-        // Note: To persist order, you would need an 'order' or 'position' column in your DB
-        // and an API call here to update it.
+    let newStatus: string | null = null;
+
+    if (Object.prototype.hasOwnProperty.call(STATUS_MAP, overId)) {
+      newStatus = overId;
+    } else {
+      const overLead = leads.find(l => l.id === overId);
+      if (overLead) {
+        newStatus = overLead.status;
+      }
+    }
+
+    const oldStatus = (active.data.current as any)?.lead?.status as string | undefined;
+
+    if (newStatus && newStatus !== oldStatus) {
+      setLeads(prev => prev.map(l => (l.id === leadId ? { ...l, status: newStatus! } : l)));
+
+      try {
+        const { error } = await supabase
+          .from('leads')
+          .update({ status: newStatus })
+          .eq('id', leadId);
+
+        if (error) throw error;
+        showToast('Lead movido com sucesso!', 'success');
+      } catch (err) {
+        showToast('Erro ao mover lead.', 'error');
+        fetchLeads();
       }
     }
   };
@@ -482,7 +498,7 @@ const Leads: React.FC = () => {
       ) : (
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCenter}
+          collisionDetection={pointerWithin}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
