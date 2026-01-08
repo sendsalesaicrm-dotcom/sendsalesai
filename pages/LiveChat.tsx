@@ -49,7 +49,7 @@ const LiveChat: React.FC = () => {
         const mappedConversations: Conversation[] = leads.map(lead => ({
           id: lead.id,
           lead_id: lead.id,
-          last_message: lead.notes || 'Clique para ver o histórico',
+          last_message: 'Clique para ver o histórico',
           last_message_at: lead.last_active || lead.created_at || new Date().toISOString(),
           unread_count: 0,
           status: 'open',
@@ -408,7 +408,7 @@ const LiveChat: React.FC = () => {
                             {new Date(conv.last_message_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{conv.last_message}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{conv.last_message || 'Clique para ver o histórico'}</p>
                       </div>
                     </div>
                   </div>
