@@ -1,15 +1,105 @@
-
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Lead } from '../types';
 import { STATUS_MAP, STATUS_COLORS } from '../constants';
-import { Search, Filter, MoreVertical, Download, Loader2, Inbox, Plus, Trash2, Eye } from 'lucide-react';
+import { Search, Filter, MoreVertical, Download, Loader2, Inbox, Plus, Trash2, Eye, LayoutGrid, List } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import NewLeadModal from '../components/NewLeadModal';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
+  DropAnimation,
+  defaultDropAnimation,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+// Kanban Lead Card Component
+const LeadCard: React.FC<{ lead: Lead }> = ({ lead }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: lead.id, data: { lead } });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition: transition || 'transform 250ms ease',
+    opacity: isDragging ? 0.5 : 1,
+    boxShadow: isDragging ? '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' : 'var(--tw-shadow)',
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 touch-none"
+    >
+      <div className="flex items-center gap-3">
+        <img src={lead.avatar_url || `https://ui-avatars.com/api/?name=${lead.name}&background=random`} alt={lead.name} className="w-10 h-10 rounded-full object-cover" />
+        <div>
+          <div className="font-bold text-sm text-gray-900 dark:text-gray-100">{lead.name}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">{lead.phone}</div>
+        </div>
+      </div>
+      {lead.tags && lead.tags.length > 0 && (
+        <div className="mt-3 flex gap-1 flex-wrap">
+          {lead.tags.slice(0, 3).map(tag => (
+            <span key={tag} className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded border border-gray-200 dark:border-gray-600">
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+type KanbanColumnProps = { id: string; title: string; leads: Lead[]; colorClass: string };
+
+// Kanban Column Component
+const KanbanColumn: React.FC<KanbanColumnProps> = ({ id, title, leads, colorClass }) => {
+  const { setNodeRef } = useSortable({ id });
+
+  return (
+    <div ref={setNodeRef} className="flex-shrink-0 w-72 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
+      <div className={`p-3 font-bold text-sm flex justify-between items-center rounded-t-xl ${colorClass}`}>
+        {title}
+        <span className="text-xs font-normal">{leads.length}</span>
+      </div>
+      <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
+        <div className="p-2 space-y-2 min-h-[200px]">
+          {leads.map(lead => (
+            <LeadCard key={lead.id} lead={lead} />
+          ))}
+        </div>
+      </SortableContext>
+    </div>
+  );
+};
+
 
 const Leads: React.FC = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [view, setView] = useState<'list' | 'kanban'>('list');
+  const [activeLead, setActiveLead] = useState<Lead | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -17,6 +107,97 @@ const Leads: React.FC = () => {
   const { currentOrganization } = useAuth();
   const { showToast } = useToast();
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const leadsByStatus = useMemo(() => {
+    const grouped = Object.fromEntries(
+      Object.keys(STATUS_MAP).map(status => [status, [] as Lead[]])
+    ) as Record<string, Lead[]>;
+
+    leads.forEach(lead => {
+      if (grouped[lead.status]) {
+        grouped[lead.status].push(lead);
+      }
+    });
+    return grouped;
+  }, [leads]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+
+  const handleStatusChange = async (leadId: string, newStatus: string) => {
+    // Optimistic update
+    const originalLeads = [...leads];
+    setLeads(prevLeads =>
+      prevLeads.map(lead =>
+        lead.id === leadId ? { ...lead, status: newStatus } : lead
+      )
+    );
+
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ status: newStatus })
+        .eq('id', leadId);
+
+      if (error) throw error;
+
+      showToast('Status do lead atualizado!', 'success');
+    } catch (error: any) {
+      // Revert on error
+      setLeads(originalLeads);
+      console.error('Erro ao atualizar status:', error.message);
+      showToast('Erro ao atualizar o status do lead.', 'error');
+    }
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    const lead = leads.find(l => l.id === active.id);
+    if (lead) {
+      setActiveLead(lead);
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveLead(null);
+    const { active, over } = event;
+
+    if (!over) return;
+
+    const activeContainer = active.data.current?.sortable.containerId;
+    const overContainer = over.data.current?.sortable?.containerId || over.id;
+    
+    if (activeContainer !== overContainer) {
+      const leadId = active.id as string;
+      const newStatus = overContainer as string;
+      if (Object.keys(STATUS_MAP).includes(newStatus)) {
+        handleStatusChange(leadId, newStatus);
+      }
+    } else {
+      // Reordering within the same column
+      const activeId = active.id;
+      const overId = over.id;
+
+      if (activeId !== overId) {
+        setLeads((items) => {
+          const oldIndex = items.findIndex(item => item.id === activeId);
+          const newIndex = items.findIndex(item => item.id === overId);
+          return arrayMove(items, oldIndex, newIndex);
+        });
+        // Note: To persist order, you would need an 'order' or 'position' column in your DB
+        // and an API call here to update it.
+      }
+    }
+  };
+
+  const dropAnimation: DropAnimation = {
+    ...defaultDropAnimation,
+  };
 
   const fetchLeads = useCallback(async () => {
     if (!currentOrganization) return;
@@ -134,6 +315,22 @@ const Leads: React.FC = () => {
            <p className="text-gray-500 dark:text-gray-400 mt-1">Gerencie seus contatos e acompanhe o status deles.</p>
         </div>
         <div className="flex gap-3">
+          <div className="flex items-center bg-gray-200 dark:bg-gray-700 p-1 rounded-lg">
+            <button
+              onClick={() => setView('list')}
+              className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${view === 'list' ? 'bg-white dark:bg-gray-800 shadow-sm text-primary dark:text-secondary' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
+            >
+              <List className="w-4 h-4 inline-block mr-1" />
+              Lista
+            </button>
+            <button
+              onClick={() => setView('kanban')}
+              className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${view === 'kanban' ? 'bg-white dark:bg-gray-800 shadow-sm text-primary dark:text-secondary' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
+            >
+              <LayoutGrid className="w-4 h-4 inline-block mr-1" />
+              Kanban
+            </button>
+          </div>
           <button 
             onClick={() => setIsNewLeadModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg font-bold hover:bg-[#004a3c] transition-colors shadow-sm"
@@ -150,10 +347,11 @@ const Leads: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        {/* Toolbar */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row gap-4 justify-between items-center bg-gray-50 dark:bg-gray-800/50">
-           <div className="relative w-full max-w-md">
+      {view === 'list' ? (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+          {/* Toolbar */}
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row gap-4 justify-between items-center bg-gray-50 dark:bg-gray-800/50">
+             <div className="relative w-full max-w-md">
              <Search className="absolute left-3 top-2.5 text-gray-400 w-4 h-4" />
              <input 
                type="text" 
@@ -261,8 +459,8 @@ const Leads: React.FC = () => {
                                     Excluir Lead
                                   </button>
                                 </div>
-                              )}
-                            </div>
+                               )}
+                             </div>
                         </div>
                     </td>
                     </tr>
@@ -280,7 +478,30 @@ const Leads: React.FC = () => {
              <button className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700" disabled={leads.length === 0}>Próximo</button>
            </div>
         </div>
-      </div>
+        </div>
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex gap-4 overflow-x-auto pb-4">
+            {(Object.entries(leadsByStatus) as [string, Lead[]][]).map(([status, statusLeads]) => (
+              <KanbanColumn
+                key={status}
+                id={status}
+                title={STATUS_MAP[status]}
+                leads={statusLeads}
+                colorClass={STATUS_COLORS[status]}
+              />
+            ))}
+          </div>
+          <DragOverlay dropAnimation={dropAnimation}>
+            {activeLead ? <LeadCard lead={activeLead} /> : null}
+          </DragOverlay>
+        </DndContext>
+      )}
     </div>
   );
 };
