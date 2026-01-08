@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Lead } from '../types';
 import { STATUS_MAP, STATUS_COLORS } from '../constants';
-import { Search, Filter, MoreVertical, Download, Loader2, Inbox, Plus, Trash2, Eye, LayoutGrid, List } from 'lucide-react';
+import { Search, Filter, MoreVertical, Download, Loader2, Inbox, Plus, Trash2, Eye, LayoutGrid, List, Calendar } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -27,8 +27,28 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+const formatKanbanEntryDate = (iso?: string) => {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const parts = new Intl.DateTimeFormat('pt-BR', {
+    month: 'short',
+    day: '2-digit',
+    year: 'numeric',
+  }).formatToParts(date);
+
+  const day = parts.find((p) => p.type === 'day')?.value;
+  const monthRaw = parts.find((p) => p.type === 'month')?.value;
+  const year = parts.find((p) => p.type === 'year')?.value;
+
+  if (!day || !monthRaw || !year) return null;
+  const month = monthRaw.replace('.', '').toLowerCase();
+  return `${month} ${day}, ${year}`;
+};
+
 // Kanban Lead Card Component
-const LeadCard: React.FC<{ lead: Lead }> = ({ lead }) => {
+const LeadCard: React.FC<{ lead: Lead; onOpenNotes?: (lead: Lead) => void }> = ({ lead, onOpenNotes }) => {
   const {
     attributes,
     listeners,
@@ -58,6 +78,30 @@ const LeadCard: React.FC<{ lead: Lead }> = ({ lead }) => {
         <div>
           <div className="font-bold text-sm text-gray-900 dark:text-gray-100">{lead.name}</div>
           <div className="text-xs text-gray-500 dark:text-gray-400">{lead.phone}</div>
+          <div className="mt-2 flex flex-col items-start gap-2">
+            {(() => {
+              const label = formatKanbanEntryDate(lead.status_changed_at || lead.created_at);
+              if (!label) return null;
+              return (
+                <div className="inline-flex items-center gap-2 px-2 py-1 text-[10px] font-semibold rounded border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-200">
+                  <Calendar className="w-3 h-3" />
+                  <span>{label}</span>
+                </div>
+              );
+            })()}
+
+            <button
+              type="button"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenNotes?.(lead);
+              }}
+              className="inline-flex items-center px-2 py-1 text-[10px] font-semibold rounded border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600"
+            >
+              Anotações
+            </button>
+          </div>
         </div>
       </div>
       {lead.tags && lead.tags.length > 0 && (
@@ -76,7 +120,7 @@ const LeadCard: React.FC<{ lead: Lead }> = ({ lead }) => {
 type KanbanColumnProps = { id: string; title: string; leads: Lead[]; colorClass: string };
 
 // Kanban Column Component
-const KanbanColumn: React.FC<KanbanColumnProps> = ({ id, title, leads, colorClass }) => {
+const KanbanColumn: React.FC<KanbanColumnProps & { onOpenNotes: (lead: Lead) => void }> = ({ id, title, leads, colorClass, onOpenNotes }) => {
   const { setNodeRef } = useDroppable({ id });
 
   return (
@@ -95,7 +139,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ id, title, leads, colorClas
       <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
         <div className="p-3 space-y-3 overflow-y-auto flex-1 min-h-[150px]">
           {leads.map(lead => (
-            <LeadCard key={lead.id} lead={lead} />
+            <LeadCard key={lead.id} lead={lead} onOpenNotes={onOpenNotes} />
           ))}
         </div>
       </SortableContext>
@@ -108,6 +152,7 @@ const Leads: React.FC = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [view, setView] = useState<'list' | 'kanban'>('list');
   const [activeLead, setActiveLead] = useState<Lead | null>(null);
+  const [notesModalLead, setNotesModalLead] = useState<Lead | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -364,6 +409,37 @@ const Leads: React.FC = () => {
         onSuccess={fetchLeads} 
       />
 
+      {notesModalLead && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onMouseDown={() => setNotesModalLead(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-xl"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <div>
+                <div className="text-sm font-bold text-gray-900 dark:text-gray-100">Anotações</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">{notesModalLead.name} • {notesModalLead.phone}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNotesModalLead(null)}
+                className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-gray-100"
+              >
+                Fechar
+              </button>
+            </div>
+            <div className="p-4">
+              <div className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap leading-relaxed bg-gray-50 dark:bg-gray-900/20 border border-gray-200 dark:border-gray-700 rounded-lg p-3 min-h-[120px]">
+                {notesModalLead.notes || 'Sem anotações disponíveis.'}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center">
         <div>
            <h1 className="text-3xl font-bold text-primary dark:text-secondary">Leads</h1>
@@ -549,11 +625,12 @@ const Leads: React.FC = () => {
                 title={STATUS_MAP[status]}
                 leads={statusLeads}
                 colorClass={STATUS_COLORS[status]}
+                onOpenNotes={(lead) => setNotesModalLead(lead)}
               />
             ))}
           </div>
           <DragOverlay dropAnimation={dropAnimation}>
-            {activeLead ? <LeadCard lead={activeLead} /> : null}
+            {activeLead ? <LeadCard lead={activeLead} onOpenNotes={(lead) => setNotesModalLead(lead)} /> : null}
           </DragOverlay>
         </DndContext>
       )}

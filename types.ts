@@ -38,6 +38,8 @@ export interface Lead {
   avatar_url?: string;
   last_active?: string;
   created_at?: string;
+  status_changed_at?: string;
+  updated_at?: string;
 }
 
 export interface Template {
