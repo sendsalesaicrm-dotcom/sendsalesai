@@ -78,9 +78,10 @@ const Dashboard: React.FC = () => {
           return query;
         })();
 
-        const [totalLeadsRes, wonLeadsRes, activeLeadsRes, conversationsRes] = await Promise.all([
+        const [totalLeadsRes, wonLeadsRes, lostLeadsRes, activeLeadsRes, conversationsRes] = await Promise.all([
           buildLeadsCountQuery(),
-          buildLeadsCountQuery().eq('status', 'won'),
+          buildLeadsCountQuery().in('status', ['won', 'customer']),
+          buildLeadsCountQuery().eq('status', 'lost'),
           buildLeadsCountQuery().not('status', 'in', '("lost","archived")'),
           conversationsQuery,
         ]);
@@ -96,14 +97,17 @@ const Dashboard: React.FC = () => {
 
         if (totalLeadsRes.error) throw totalLeadsRes.error;
         if (wonLeadsRes.error) throw wonLeadsRes.error;
+        if (lostLeadsRes.error) throw lostLeadsRes.error;
         if (activeLeadsRes.error) throw activeLeadsRes.error;
         if (conversationsRes.error) throw conversationsRes.error;
         if (leadsStatusRes.error) throw leadsStatusRes.error;
 
         const totalLeads = totalLeadsRes.count ?? 0;
         const wonLeads = wonLeadsRes.count ?? 0;
+        const lostLeads = lostLeadsRes.count ?? 0;
         const activeLeads = activeLeadsRes.count ?? 0;
-        const conversionRate = totalLeads > 0 ? Number(((wonLeads / totalLeads) * 100).toFixed(1)) : 0;
+        const closedLeads = wonLeads + lostLeads;
+        const conversionRate = closedLeads > 0 ? Number(((wonLeads / closedLeads) * 100).toFixed(1)) : 0;
 
         const conversations = (conversationsRes.data ?? []) as Array<{
           lead_id: string;
