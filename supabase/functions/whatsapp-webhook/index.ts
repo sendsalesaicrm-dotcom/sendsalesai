@@ -101,70 +101,64 @@ serve(async (req) => {
           return new Response("OK - No Content", { status: 200 });
       }
 
+      phone = String(phone).replace(/\D/g, "");
+      if (!phone) {
+        return new Response("OK - Invalid Phone", { status: 200 });
+      }
+
       console.log(`Processing message from ${phone}: ${content}`);
 
       // --- DATABASE PERSISTENCE ---
 
-      // 1. Find or Create Lead
+      // 1. Find or Create Lead (per-organization uniqueness)
       let leadId: string | null = null;
       let organizationId: string | null = null;
-      
-      // First, try to find an existing lead by phone
-      // Note: In a multi-tenant system with duplicate phones across orgs, 
-      // this logic might pick the most recently active one.
-      const { data: existingLead } = await supabase
-        .from("leads")
-        .select("id, organization_id")
-        .eq("phone", phone)
-        .order('last_active', { ascending: false })
-        .limit(1)
-        .maybeSingle();
 
-      if (existingLead) {
-        leadId = existingLead.id;
-        organizationId = existingLead.organization_id;
-        
-        // Update name if available and last_active
-        const updateData: any = { last_active: timestamp };
-        if (name && name !== phone) updateData.name = name;
-        
-        await supabase.from('leads').update(updateData).eq('id', leadId);
-      } else {
-        // Lead doesn't exist. We need to find the Organization ID to create it.
-        
-        // Strategy A: If Meta, use phone_number_id from payload
-        if (metaPhoneNumberId) {
-             const { data: config } = await supabase
-                .from('whatsapp_config')
-                .select('organization_id')
-                .eq('phone_number_id', metaPhoneNumberId)
-                .single();
-             if (config) organizationId = config.organization_id;
-        } 
-        
-        // Strategy B: If Evolution, we might look for a default org or instance mapping.
-        // For this implementation, if we can't find the org, we can't create the lead safely.
-        // Fallback: Pick the first organization (DEV ONLY - REMOVE IN PROD)
-        if (!organizationId) {
-            const { data: firstOrg } = await supabase.from('organizations').select('id').limit(1).single();
-            organizationId = firstOrg?.id || null;
-        }
+      // Resolve Organization ID first
+      if (metaPhoneNumberId) {
+        const { data: config } = await supabase
+          .from('whatsapp_config')
+          .select('organization_id')
+          .eq('phone_number_id', metaPhoneNumberId)
+          .single();
+        if (config) organizationId = config.organization_id;
+      }
 
-        if (organizationId) {
-            const { data: newLead, error: createError } = await supabase
-            .from("leads")
+      // Fallback (DEV ONLY - REMOVE IN PROD): pick first org if we couldn't resolve
+      if (!organizationId) {
+        const { data: firstOrg } = await supabase.from('organizations').select('id').limit(1).single();
+        organizationId = firstOrg?.id || null;
+      }
+
+      if (organizationId) {
+        const { data: existingLead } = await supabase
+          .from('leads')
+          .select('id')
+          .eq('organization_id', organizationId)
+          .eq('phone', phone)
+          .maybeSingle();
+
+        if (existingLead) {
+          leadId = existingLead.id;
+
+          const updateData: any = { last_active: timestamp };
+          if (name && name !== phone) updateData.name = name;
+          await supabase.from('leads').update(updateData).eq('id', leadId);
+        } else {
+          const { data: newLead, error: createError } = await supabase
+            .from('leads')
             .insert({
-                organization_id: organizationId,
-                phone: phone,
-                name: name || phone,
-                status: "new",
-                tags: ["inbound"],
-                last_active: timestamp
+              organization_id: organizationId,
+              phone: phone,
+              name: name || phone,
+              status: 'new',
+              tags: ['inbound'],
+              last_active: timestamp,
             })
-            .select("id")
+            .select('id')
             .single();
 
-            if (!createError && newLead) leadId = newLead.id;
+          if (!createError && newLead) leadId = newLead.id;
         }
       }
 

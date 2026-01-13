@@ -24,6 +24,11 @@ serve(async (req) => {
       throw new Error('Dados incompletos: organization_id, phone, message são obrigatórios.')
     }
 
+    const cleanPhone = String(phone).replace(/\D/g, '')
+    if (!cleanPhone) {
+      throw new Error('Telefone inválido.')
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -55,7 +60,7 @@ serve(async (req) => {
       .from('leads')
       .select('id')
       .eq('organization_id', organization_id)
-      .eq('phone', phone)
+      .eq('phone', cleanPhone)
       .single();
 
     if (leadData) {
@@ -69,8 +74,8 @@ serve(async (req) => {
         .from('leads')
         .insert({
           organization_id: organization_id,
-          phone: phone,
-          name: phone, // Fallback name
+          phone: cleanPhone,
+          name: cleanPhone, // Fallback name
           status: 'new'
         })
         .select('id')
@@ -98,7 +103,7 @@ serve(async (req) => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          number: phone, 
+          number: cleanPhone, 
           text: message,
           linkPreview: false
         })
@@ -124,7 +129,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           messaging_product: 'whatsapp',
-          to: phone,
+          to: cleanPhone,
           type: 'text',
           text: { body: message }
         })

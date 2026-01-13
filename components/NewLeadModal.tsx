@@ -41,6 +41,26 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onSuccess 
     const cleanPhone = phone.replace(/\D/g, '');
 
     try {
+      // Prevent duplicates (client-side) even if DB constraint isn't applied yet
+      const { data: existing, error: existingError } = await supabase
+        .from('leads')
+        .select('id')
+        .eq('organization_id', currentOrganization.id)
+        .eq('phone', cleanPhone)
+        .maybeSingle();
+
+      if (existingError) throw existingError;
+      if (existing?.id) {
+        showToast('Este número de telefone já está cadastrado.', 'error');
+        return;
+      }
+    } catch (error: any) {
+      console.error('Error checking existing lead:', error);
+      showToast('Erro ao validar telefone.', 'error');
+      return;
+    }
+
+    try {
       const { error } = await supabase.from('leads').insert({
         organization_id: currentOrganization.id,
         name: name,
@@ -63,7 +83,12 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onSuccess 
       onClose();
     } catch (error: any) {
       console.error('Error creating lead:', error);
-      showToast('Erro ao criar lead: ' + error.message, 'error');
+      const code = error?.code;
+      if (code === '23505') {
+        showToast('Este número de telefone já está cadastrado.', 'error');
+      } else {
+        showToast('Erro ao criar lead: ' + error.message, 'error');
+      }
     } finally {
       setIsLoading(false);
     }
