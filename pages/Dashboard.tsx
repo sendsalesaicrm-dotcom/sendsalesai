@@ -25,6 +25,7 @@ const Dashboard: React.FC = () => {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [chartData, setChartData] = useState<AttendanceData[]>([]);
   const [leadStatusData, setLeadStatusData] = useState<Array<{ name: string; value: number; color: string }>>([]);
+  const [leadLimit, setLeadLimit] = useState<number>(500);
   const [isLoading, setIsLoading] = useState(true);
 
   const { user, currentOrganization, userRole } = useAuth();
@@ -44,6 +45,17 @@ const Dashboard: React.FC = () => {
         const organizationId = currentOrganization.id;
         const userId = user.id;
         const isAgent = userRole === 'agent';
+
+        // Plan limit (fallback to 500)
+        const { data: orgData, error: orgError } = await supabase
+          .from('organizations')
+          .select('lead_limit')
+          .eq('id', organizationId)
+          .single();
+
+        if (orgError) throw orgError;
+        const fetchedLeadLimit = (orgData as any)?.lead_limit;
+        setLeadLimit(typeof fetchedLeadLimit === 'number' ? fetchedLeadLimit : fetchedLeadLimit == null ? 500 : Number(fetchedLeadLimit) || 500);
 
         const buildLeadsCountQuery = () => {
           let query = supabase
@@ -263,6 +275,31 @@ const Dashboard: React.FC = () => {
         <div>
           <h1 className="text-3xl font-bold text-primary dark:text-secondary">Painel de Controle</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Bem-vindo de volta, Admin. Aqui está seu resumo diário.</p>
+
+          <div className="mt-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+            {(() => {
+              const used = metrics?.activeLeads ?? 0;
+              const limit = Number.isFinite(leadLimit) && leadLimit > 0 ? leadLimit : 500;
+              const pct = Math.min(100, Math.max(0, (used / limit) * 100));
+
+              const barColor = pct < 80 ? 'bg-green-500' : pct < 90 ? 'bg-yellow-500' : 'bg-red-500';
+              const trackColor = 'bg-gray-200 dark:bg-gray-700';
+
+              return (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">Uso do Plano</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-300">
+                      Uso de Leads: <span className="font-semibold">{used}</span> de <span className="font-semibold">{limit}</span>
+                    </div>
+                  </div>
+                  <div className={`mt-3 h-2 w-full rounded-full overflow-hidden ${trackColor}`}>
+                    <div className={`h-full ${barColor}`} style={{ width: `${pct}%` }} />
+                  </div>
+                </>
+              );
+            })()}
+          </div>
         </div>
       </div>
 
