@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import LiveChat from './pages/LiveChat';
@@ -15,6 +15,8 @@ import TeamSettings from './pages/TeamSettings';
 import Login from './pages/Login';
 import SignUp from './pages/SignUp';
 import JoinTeam from './pages/JoinTeam';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import ProtectedRoute from './components/ProtectedRoute';
 import { ToastProvider } from './context/ToastContext';
 import { AuthProvider } from './context/AuthContext';
@@ -25,9 +27,11 @@ const App: React.FC = () => {
     <ToastProvider>
       <AuthProvider>
         <SettingsProvider>
-          <HashRouter>
+          <BrowserRouter>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/register" element={<SignUp />} />
               <Route path="/join" element={<JoinTeam />} />
               <Route element={
@@ -52,7 +56,7 @@ const App: React.FC = () => {
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
-          </HashRouter>
+          </BrowserRouter>
         </SettingsProvider>
       </AuthProvider>
     </ToastProvider>
