@@ -49,6 +49,7 @@ const formatKanbanEntryDate = (iso?: string) => {
 
 // Kanban Lead Card Component
 const LeadCard: React.FC<{ lead: Lead; onOpenNotes?: (lead: Lead) => void }> = ({ lead, onOpenNotes }) => {
+  const DEFAULT_AVATAR_URL = 'https://ohgcufkcrpehkvxavmhw.supabase.co/storage/v1/object/public/logo/avatar.png';
   const {
     attributes,
     listeners,
@@ -74,7 +75,15 @@ const LeadCard: React.FC<{ lead: Lead; onOpenNotes?: (lead: Lead) => void }> = (
       className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 touch-none"
     >
       <div className="flex items-center gap-3">
-        <img src={lead.avatar_url || `https://ui-avatars.com/api/?name=${lead.name}&background=random`} alt={lead.name} className="w-10 h-10 rounded-full object-cover" />
+        <img
+          src={lead.avatar_url || DEFAULT_AVATAR_URL}
+          onError={(e) => {
+            const img = e.currentTarget;
+            if (img.src !== DEFAULT_AVATAR_URL) img.src = DEFAULT_AVATAR_URL;
+          }}
+          alt={lead.name}
+          className="w-10 h-10 rounded-full object-cover"
+        />
         <div>
           <div className="font-bold text-sm text-gray-900 dark:text-gray-100">{lead.name}</div>
           <div className="text-xs text-gray-500 dark:text-gray-400">{lead.phone}</div>
@@ -532,7 +541,16 @@ const Leads: React.FC = () => {
                     <tr key={lead.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                        <img src={lead.avatar_url || 'https://via.placeholder.com/40'} alt="" className="w-10 h-10 rounded-full object-cover" />
+                        <img
+                          src={lead.avatar_url || 'https://ohgcufkcrpehkvxavmhw.supabase.co/storage/v1/object/public/logo/avatar.png'}
+                          onError={(e) => {
+                            const img = e.currentTarget;
+                            const fallback = 'https://ohgcufkcrpehkvxavmhw.supabase.co/storage/v1/object/public/logo/avatar.png';
+                            if (img.src !== fallback) img.src = fallback;
+                          }}
+                          alt=""
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
                         <div>
                             <div className="font-medium text-gray-900 dark:text-gray-100">{lead.name}</div>
                             <div className="text-xs text-gray-500 dark:text-gray-400">{lead.phone}</div>
