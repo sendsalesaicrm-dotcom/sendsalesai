@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Users, Send, Bot, TrendingUp, Loader2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { DashboardMetrics, AttendanceData } from '../types';
+import { supabase } from '../services/supabaseClient';
+import { useAuth } from '../context/AuthContext';
 
 const StatCard: React.FC<{ title: string; value: string | number; icon: React.ElementType; color: string; isLoading: boolean }> = ({ title, value, icon: Icon, color, isLoading }) => (
   <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4 hover:shadow-md transition-shadow">
@@ -24,20 +26,76 @@ const Dashboard: React.FC = () => {
   const [chartData, setChartData] = useState<AttendanceData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const { user, currentOrganization, userRole } = useAuth();
+
   useEffect(() => {
-    // TODO: Fetch real data from Supabase
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        // Simulating fetch delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
+        if (!user || !currentOrganization || !userRole) {
+          setMetrics({ activeLeads: 0, messagesSentToday: 0, aiConversionRate: 0 });
+          setChartData([]); // Empty initially
+          return;
+        }
+
+        const organizationId = currentOrganization.id;
+        const userId = user.id;
+        const isAgent = userRole === 'agent';
+
+        const buildLeadsCountQuery = () => {
+          let query = supabase
+            .from('leads')
+            .select('id', { count: 'exact', head: true })
+            .eq('organization_id', organizationId);
+
+          if (isAgent) {
+            query = query.eq('assigned_to_id', userId);
+          }
+          return query;
+        };
+
+        const now = new Date();
+        const startOfTodayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startOfTomorrowLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+
+        const [totalLeadsRes, wonLeadsRes, activeLeadsRes, messagesTodayRes] = await Promise.all([
+          buildLeadsCountQuery(),
+          buildLeadsCountQuery().in('status', ['won', 'customer']),
+          buildLeadsCountQuery().not('status', 'in', '("lost","archived")'),
+          (() => {
+            let msgQuery = supabase
+              .from('conversations')
+              .select('id, leads!inner(id)', { count: 'exact', head: true })
+              .eq('leads.organization_id', organizationId)
+              .eq('sender_type', 'user')
+              .gte('created_at', startOfTodayLocal.toISOString())
+              .lt('created_at', startOfTomorrowLocal.toISOString());
+
+            if (isAgent) {
+              msgQuery = msgQuery.eq('leads.assigned_to_id', userId);
+            }
+            return msgQuery;
+          })(),
+        ]);
+
+        if (totalLeadsRes.error) throw totalLeadsRes.error;
+        if (wonLeadsRes.error) throw wonLeadsRes.error;
+        if (activeLeadsRes.error) throw activeLeadsRes.error;
+        if (messagesTodayRes.error) throw messagesTodayRes.error;
+
+        const totalLeads = totalLeadsRes.count ?? 0;
+        const wonLeads = wonLeadsRes.count ?? 0;
+        const activeLeads = activeLeadsRes.count ?? 0;
+        const messagesSentToday = messagesTodayRes.count ?? 0;
+        const aiConversionRate = totalLeads > 0 ? Number(((wonLeads / totalLeads) * 100).toFixed(1)) : 0;
+
         setMetrics({
-          activeLeads: 0,
-          messagesSentToday: 0,
-          aiConversionRate: 0
+          activeLeads,
+          messagesSentToday,
+          aiConversionRate,
         });
-        setChartData([]); // Empty initially
+
+        setChartData([]); // Chart not implemented yet
       } catch (error) {
         console.error("Failed to fetch dashboard data", error);
       } finally {
@@ -46,7 +104,7 @@ const Dashboard: React.FC = () => {
     };
 
     fetchData();
-  }, []);
+  }, [user, currentOrganization, userRole]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
