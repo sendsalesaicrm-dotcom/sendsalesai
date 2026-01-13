@@ -87,7 +87,7 @@ export interface Conversation {
 export interface DashboardMetrics {
   activeLeads: number;
   messagesSentToday: number;
-  aiConversionRate: number;
+  conversionRate: number;
 }
 
 // Chart data
