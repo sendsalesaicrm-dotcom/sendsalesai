@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { X, Save, Loader2, User, Phone, Tag } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
 import { useToast } from '../context/ToastContext';
@@ -20,6 +19,49 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onSuccess 
   const [status, setStatus] = useState('new');
   const [isLoading, setIsLoading] = useState(false);
 
+  const [isCheckingLeadLimit, setIsCheckingLeadLimit] = useState(false);
+  const [leadLimit, setLeadLimit] = useState<number | null>(null);
+  const [currentLeadCount, setCurrentLeadCount] = useState<number>(0);
+
+  const isLeadLimitReached = useMemo(() => {
+    if (leadLimit === null || leadLimit === undefined) return false;
+    if (!Number.isFinite(leadLimit)) return false;
+    return currentLeadCount >= leadLimit;
+  }, [currentLeadCount, leadLimit]);
+
+  const refreshLeadLimit = async () => {
+    if (!currentOrganization?.id) return;
+    setIsCheckingLeadLimit(true);
+    try {
+      const orgId = currentOrganization.id;
+
+      const [{ data: org, error: orgErr }, { count, error: leadsErr }] = await Promise.all([
+        supabase.from('organizations').select('lead_limit').eq('id', orgId).single(),
+        supabase.from('leads').select('id', { count: 'exact', head: true }).eq('organization_id', orgId),
+      ]);
+
+      if (orgErr) throw orgErr;
+      if (leadsErr) throw leadsErr;
+
+      const limit = (org as any)?.lead_limit;
+      setLeadLimit(typeof limit === 'number' ? limit : limit == null ? null : Number(limit));
+      setCurrentLeadCount(count ?? 0);
+    } catch (error: any) {
+      console.error('Error checking lead limit:', error);
+      // Fail open: if we can't verify the plan limit, don't block lead creation.
+      setLeadLimit(null);
+    } finally {
+      setIsCheckingLeadLimit(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!currentOrganization?.id) return;
+    refreshLeadLimit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, currentOrganization?.id]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -32,6 +74,13 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onSuccess 
 
     if (!name.trim() || !phone.trim()) {
       showToast('Nome e telefone são obrigatórios.', 'error');
+      return;
+    }
+
+    // Re-check on submit to avoid stale UI.
+    await refreshLeadLimit();
+    if (isLeadLimitReached) {
+      showToast('Limite de leads do seu plano atingido. Faça upgrade para continuar.', 'error');
       return;
     }
 
@@ -111,6 +160,12 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onSuccess 
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+
+          {isLeadLimitReached && (
+            <div className="rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 px-4 py-3 text-sm text-red-700 dark:text-red-200">
+              Limite de leads do seu plano atingido. Faça upgrade para continuar.
+            </div>
+          )}
           
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome do Lead *</label>
@@ -171,10 +226,10 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onSuccess 
             </button>
             <button 
               type="submit" 
-              disabled={isLoading}
+              disabled={isLoading || isCheckingLeadLimit || isLeadLimitReached}
               className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-[#004a3c] transition-colors flex items-center gap-2 disabled:opacity-70"
             >
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {isLoading || isCheckingLeadLimit ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Salvar Lead
             </button>
           </div>

@@ -5,6 +5,7 @@ export interface Organization {
   name: string;
   slug: string;
   created_at?: string;
+  lead_limit?: number | null;
   // Evolution API optional configuration
   evolution_url?: string;
   evolution_api_key?: string;
