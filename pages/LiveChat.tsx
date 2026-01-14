@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, MoreVertical, Send, Paperclip, Bot, Sparkles, User, Tag, Phone, Edit2, Loader2, MessageSquareOff, Plus } from 'lucide-react';
+import { Search, MoreVertical, Send, Paperclip, Bot, Sparkles, User, Tag, Phone, Edit2, Loader2, MessageSquareOff, Plus, ShieldCheck } from 'lucide-react';
 import { Conversation, Message, Lead } from '../types';
 import { suggestReply } from '../services/geminiService';
 import { sendMessage } from '../services/sendMessageService';
@@ -642,8 +642,11 @@ const LiveChat: React.FC = () => {
                     <option value="customer">Cliente</option>
                     <option value="lost">Perdido</option>
                  </select>
-                <div className="mt-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/20 p-3 min-h-[140px] flex">
-                  <p className="mt-auto text-xs text-gray-400">Histórico limitado aos últimos 60 dias conforme a política de armazenamento do sistema.</p>
+                <div className="mt-4 rounded-xl bg-blue-50/50 dark:bg-gray-100/10 border border-blue-100/60 dark:border-gray-700/60 p-3">
+                  <div className="flex items-start gap-2 text-blue-700 dark:text-gray-200">
+                    <ShieldCheck className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs leading-relaxed">Política de Dados: Histórico de 60 dias e mídias por 24h.</p>
+                  </div>
                 </div>
               </div>
             </div>
