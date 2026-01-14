@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Send, TrendingUp, Loader2 } from 'lucide-react';
+import { Users, Send, TrendingUp, Loader2, Info } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { DashboardMetrics, AttendanceData } from '../types';
 import { supabase } from '../services/supabaseClient';
@@ -295,6 +295,12 @@ const Dashboard: React.FC = () => {
                   </div>
                   <div className={`mt-3 h-2 w-full rounded-full overflow-hidden ${trackColor}`}>
                     <div className={`h-full ${barColor}`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <div className="mt-4 flex items-start gap-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 px-3 py-2 text-blue-700 dark:text-blue-200">
+                    <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs leading-relaxed">
+                      Política de Retenção: As suas conversas são mantidas por 60 dias e as mídias (fotos/áudios) por 24 horas para otimização do armazenamento.
+                    </p>
                   </div>
                 </>
               );

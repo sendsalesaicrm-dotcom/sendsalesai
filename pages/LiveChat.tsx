@@ -642,6 +642,9 @@ const LiveChat: React.FC = () => {
                     <option value="customer">Cliente</option>
                     <option value="lost">Perdido</option>
                  </select>
+                <div className="mt-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/20 p-3 min-h-[140px] flex">
+                  <p className="mt-auto text-xs text-gray-400">Histórico limitado aos últimos 60 dias conforme a política de armazenamento do sistema.</p>
+                </div>
               </div>
             </div>
           </div>
