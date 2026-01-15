@@ -47,7 +47,7 @@ export interface Lead {
 export interface Template {
   id: string;
   name: string;
-  body_text: string;
+  body_text: string;""
   variables: string[];
   created_at?: string;
 }
