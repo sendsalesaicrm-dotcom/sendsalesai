@@ -135,7 +135,7 @@ const KanbanColumn: React.FC<KanbanColumnProps & { onOpenNotes: (lead: Lead) => 
   return (
     <div
       ref={setNodeRef}
-      className="flex-shrink-0 w-72 flex flex-col h-full bg-gray-50/50 dark:bg-gray-900/20 rounded-xl border border-gray-200 dark:border-gray-800"
+      className="flex-shrink-0 w-72 flex flex-col h-full min-h-0 bg-gray-50/50 dark:bg-gray-900/20 rounded-xl border border-gray-200 dark:border-gray-800"
     >
       <div className="p-3 font-bold text-sm flex justify-between items-center border-b border-gray-200 dark:border-gray-700 rounded-t-xl bg-white dark:bg-gray-800">
         <div className="flex items-center gap-2">
@@ -146,7 +146,7 @@ const KanbanColumn: React.FC<KanbanColumnProps & { onOpenNotes: (lead: Lead) => 
       </div>
 
       <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
-        <div className="p-3 space-y-3 overflow-y-auto flex-1 min-h-[150px]">
+        <div className="p-3 space-y-3 overflow-y-auto flex-1 min-h-0">
           {leads.map(lead => (
             <LeadCard key={lead.id} lead={lead} onOpenNotes={onOpenNotes} />
           ))}
@@ -635,17 +635,19 @@ const Leads: React.FC = () => {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="flex gap-4 overflow-x-auto pb-4">
-            {(Object.entries(leadsByStatus) as [string, Lead[]][]).map(([status, statusLeads]) => (
-              <KanbanColumn
-                key={status}
-                id={status}
-                title={STATUS_MAP[status]}
-                leads={statusLeads}
-                colorClass={STATUS_COLORS[status]}
-                onOpenNotes={(lead) => setNotesModalLead(lead)}
-              />
-            ))}
+          <div className="h-[calc(100vh-260px)] min-h-[420px] overflow-hidden">
+            <div className="flex gap-4 overflow-x-auto h-full pb-4">
+              {(Object.entries(leadsByStatus) as [string, Lead[]][]).map(([status, statusLeads]) => (
+                <KanbanColumn
+                  key={status}
+                  id={status}
+                  title={STATUS_MAP[status]}
+                  leads={statusLeads}
+                  colorClass={STATUS_COLORS[status]}
+                  onOpenNotes={(lead) => setNotesModalLead(lead)}
+                />
+              ))}
+            </div>
           </div>
           <DragOverlay dropAnimation={dropAnimation}>
             {activeLead ? <LeadCard lead={activeLead} onOpenNotes={(lead) => setNotesModalLead(lead)} /> : null}
