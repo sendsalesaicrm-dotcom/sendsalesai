@@ -18,9 +18,9 @@ const Sidebar: React.FC = () => {
   const allNavItems = [
     { icon: LayoutDashboard, label: 'Painel', path: '/', allowed: true },
     { icon: MessageSquareText, label: 'Chat ao Vivo', path: '/chat', allowed: true },
-    { icon: Megaphone, label: 'Campanhas', path: '/campaigns', allowed: !isAgent },
+    // { icon: Megaphone, label: 'Campanhas', path: '/campaigns', allowed: !isAgent }, // V1: oculto
     { icon: Users, label: 'Leads', path: '/leads', allowed: true },
-    { icon: Bot, label: 'Agentes IA', path: '/ai-agents', allowed: !isAgent },
+    // { icon: Bot, label: 'Agentes IA', path: '/ai-agents', allowed: !isAgent }, // V1: oculto
     { icon: UserCog, label: 'Equipe', path: '/team', allowed: !isAgent },
   ];
 
