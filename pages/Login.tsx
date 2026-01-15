@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, LogIn, Loader2 } from 'lucide-react';
+import { Mail, Lock, LogIn, Loader2, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
 import { useToast } from '../context/ToastContext';
 
@@ -10,6 +10,7 @@ const Login: React.FC = () => {
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -96,13 +97,21 @@ const Login: React.FC = () => {
                 </div>
                 <input
                   id="password"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-10 sm:text-sm border-gray-300 rounded-lg focus:ring-primary focus:border-primary p-2.5 border transition-colors bg-gray-50 focus:bg-white"
+                  className="block w-full pl-10 pr-12 sm:text-sm border-gray-300 rounded-lg focus:ring-primary focus:border-primary p-2.5 border transition-colors bg-gray-50 focus:bg-white"
                   placeholder="••••••••"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
               </div>
             </div>
 
