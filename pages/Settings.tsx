@@ -41,6 +41,8 @@ interface SettingsContextType {
   setWabaId: (id: string) => void;
   phoneId: string;
   setPhoneId: (id: string) => void;
+  verifyToken: string;
+  setVerifyToken: (token: string) => void;
   accessToken: string;
   setAccessToken: (token: string) => void;
   showAccessToken: boolean;
@@ -901,7 +903,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     timeZones,
     selectedZone, setSelectedZone,
     currentTime, handleSaveRegional, isSavingRegional,
-    wabaId, setWabaId, phoneId, setPhoneId, accessToken, setAccessToken, showAccessToken, setShowAccessToken, handleTestConnection, isTestingConnection, connectionStatus, handleSaveWhatsApp, isLoadingConfig,
+    wabaId, setWabaId, phoneId, setPhoneId, verifyToken, setVerifyToken, accessToken, setAccessToken, showAccessToken, setShowAccessToken, handleTestConnection, isTestingConnection, connectionStatus, handleSaveWhatsApp, isLoadingConfig,
     evolutionUrl, setEvolutionUrl, evolutionApiKey, setEvolutionApiKey, evolutionInstance, setEvolutionInstance, handleSaveEvolution, fetchedInstances, isFetchingInstances, handleFetchInstances,
     evolutionGlobalKey, setEvolutionGlobalKey, newInstanceBaseUrl, setNewInstanceBaseUrl, newInstanceName, setNewInstanceName, newInstancePhone, setNewInstancePhone, newInstanceToken, generateRandomInstanceToken, handleCreateInstance, isCreatingInstance, showGlobalKey, setShowGlobalKey,
     connectInstanceName, setConnectInstanceName, connectApiKey, setConnectApiKey, isGeneratingQr, qrCodeBase64, handleGetQrCode,
