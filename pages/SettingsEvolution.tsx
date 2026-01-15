@@ -1,6 +1,8 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { SettingsContext } from './Settings';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../services/supabaseClient';
 import { 
   Server, 
   CheckCircle, 
@@ -22,6 +24,10 @@ import {
 
 const SettingsEvolution: React.FC = () => {
   const ctx = useContext(SettingsContext);
+  const { currentOrganization } = useAuth();
+
+  const [instanceLimit, setInstanceLimit] = useState<number>(2);
+  const [isLoadingInstanceLimit, setIsLoadingInstanceLimit] = useState<boolean>(false);
   
   if (!ctx) return (
     <div className="flex items-center justify-center p-12">
@@ -81,6 +87,58 @@ const SettingsEvolution: React.FC = () => {
     isProcessingSettings,
     handleSetSettings, handleFindSettings,
   } = ctx as any;
+
+  useEffect(() => {
+    const orgId = currentOrganization?.id;
+
+    // Fallback default
+    if (!orgId) {
+      setInstanceLimit(2);
+      return;
+    }
+
+    // Prefer value if already present on context
+    const contextLimit = (currentOrganization as any)?.instance_limit;
+    if (typeof contextLimit === 'number' && Number.isFinite(contextLimit)) {
+      setInstanceLimit(contextLimit || 2);
+      return;
+    }
+
+    let isCancelled = false;
+
+    const loadLimit = async () => {
+      setIsLoadingInstanceLimit(true);
+      try {
+        const { data, error } = await supabase
+          .from('organizations')
+          .select('instance_limit')
+          .eq('id', orgId)
+          .single();
+
+        if (error) throw error;
+        const limitValue = (data as any)?.instance_limit;
+        const normalized = typeof limitValue === 'number' && Number.isFinite(limitValue) ? limitValue : null;
+        if (!isCancelled) setInstanceLimit(normalized ?? 2);
+      } catch {
+        if (!isCancelled) setInstanceLimit(2);
+      } finally {
+        if (!isCancelled) setIsLoadingInstanceLimit(false);
+      }
+    };
+
+    loadLimit();
+    return () => {
+      isCancelled = true;
+    };
+  }, [currentOrganization?.id]);
+
+  const instancesCount = useMemo(() => {
+    return Array.isArray(fetchedInstances) ? fetchedInstances.length : 0;
+  }, [fetchedInstances]);
+
+  const isInstanceLimitReached = useMemo(() => {
+    return instancesCount >= (instanceLimit ?? 2);
+  }, [instancesCount, instanceLimit]);
 
   return (
     <div className="space-y-6 pb-10">
@@ -162,8 +220,21 @@ const SettingsEvolution: React.FC = () => {
               </div>
             </div>
           </div>
-          <div className="flex items-center justify-end pt-4 border-t border-gray-100 dark:border-gray-700">
-            <button onClick={handleCreateInstance} disabled={isCreatingInstance || !newInstanceName || !evolutionGlobalKey} className="px-8 py-2.5 bg-primary text-white rounded-lg font-bold hover:bg-[#004a3c] transition-all shadow-md flex items-center gap-2 disabled:opacity-50">
+          <div className="flex flex-col items-end gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
+            {isInstanceLimitReached && (
+              <div className="flex items-center gap-2 text-sm text-orange-600 dark:text-orange-400">
+                <AlertCircle className="w-4 h-4" />
+                <span>
+                  Limite de instâncias do seu plano atingido ({instancesCount}/{instanceLimit}). Faça upgrade para adicionar mais.
+                </span>
+              </div>
+            )}
+            <button
+              onClick={handleCreateInstance}
+              disabled={isCreatingInstance || isLoadingInstanceLimit || isInstanceLimitReached || !newInstanceName || !evolutionGlobalKey}
+              className="px-8 py-2.5 bg-primary text-white rounded-lg font-bold hover:bg-[#004a3c] transition-all shadow-md flex items-center gap-2 disabled:opacity-50"
+              title={isInstanceLimitReached ? 'Limite de instâncias atingido' : undefined}
+            >
               {isCreatingInstance ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} Criar Instância
             </button>
           </div>
