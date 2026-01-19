@@ -546,7 +546,7 @@ const LiveChat: React.FC = () => {
       />
 
       {/* LEFT COLUMN: Chat List */}
-      <div className="w-80 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex flex-col">
+      <div className={`w-full lg:w-80 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex flex-col ${activeChatId ? 'hidden lg:flex' : 'flex'}`}>
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Conversas</h2>
@@ -626,11 +626,19 @@ const LiveChat: React.FC = () => {
       </div>
 
       {/* CENTER COLUMN: Chat Interface */}
-      <div className="flex-1 flex flex-col bg-[#efeae2] dark:bg-[#0b141a] relative transition-colors">
+      <div className={`flex-1 ${activeChatId ? 'flex' : 'hidden lg:flex'} flex-col bg-[#efeae2] dark:bg-[#0b141a] relative transition-colors`}>
         {activeChatId ? (
           <>
             {/* Chat Header */}
             <div className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shadow-sm z-10">
+                <button
+                  type="button"
+                  onClick={() => setActiveChatId(null)}
+                  className="lg:hidden -ml-2 mr-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  aria-label="Voltar para lista"
+                >
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Voltar</span>
+                </button>
                 {activeLead ? (
                     <div className="flex items-center gap-3">
                         <img src={activeLead.avatar_url || DEFAULT_AVATAR_URL} alt={activeLead.name} className="w-10 h-10 rounded-full object-cover" />
@@ -764,7 +772,7 @@ const LiveChat: React.FC = () => {
       </div>
 
       {/* RIGHT COLUMN: CRM Profile */}
-      <div className="w-80 border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col overflow-y-auto">
+      <div className="hidden lg:flex w-80 border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-col overflow-y-auto">
         {activeLead ? (
           <div className="p-6 space-y-6">
             <div className="text-center">

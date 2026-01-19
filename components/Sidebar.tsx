@@ -6,7 +6,12 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useSettings } from '../pages/Settings';
 
-const Sidebar: React.FC = () => {
+type SidebarProps = {
+  isOpen?: boolean;
+  onClose?: () => void;
+};
+
+const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
   const [dateTime, setDateTime] = useState({ time: '', date: '' });
   const { logout, userRole } = useAuth();
   const { isDarkMode, toggleTheme, primaryColor } = useTheme();
@@ -61,7 +66,12 @@ const Sidebar: React.FC = () => {
   }, []);
 
   return (
-    <div className="w-64 bg-primary text-white flex flex-col h-screen fixed left-0 top-0 shadow-xl z-50 transition-colors duration-300">
+    <aside
+      className={`w-64 bg-primary text-white flex flex-col fixed left-0 top-0 shadow-xl z-50 transition-transform transition-colors duration-300 h-dvh md:h-screen ${
+        isOpen ? 'translate-x-0' : '-translate-x-full'
+      } md:translate-x-0`}
+      aria-hidden={!isOpen ? true : undefined}
+    >
       <div className="p-6 border-b border-primary-dark/40">
         {/* Logo Section */}
         <div className="flex items-center gap-3 mb-4">
@@ -90,11 +100,12 @@ const Sidebar: React.FC = () => {
         </div>
       </div>
 
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="flex-1 min-h-0 p-4 space-y-2 overflow-y-auto">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
+            onClick={() => onClose?.()}
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
                 isActive
@@ -128,6 +139,7 @@ const Sidebar: React.FC = () => {
         {!isAgent && (
           <NavLink
             to="/settings"
+            onClick={() => onClose?.()}
             className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-primary-dark/50 rounded-lg transition-colors"
           >
             <Settings className="w-5 h-5" />
@@ -139,6 +151,7 @@ const Sidebar: React.FC = () => {
           onClick={() => {
             logout();
             clearAllDrafts();
+            onClose?.();
           }}
           className="w-full flex items-center gap-3 px-4 py-3 text-red-300 hover:text-red-100 hover:bg-red-900/20 rounded-lg transition-colors"
         >
@@ -146,7 +159,7 @@ const Sidebar: React.FC = () => {
           <span>Sair</span>
         </button>
       </div>
-    </div>
+    </aside>
   );
 };
 
