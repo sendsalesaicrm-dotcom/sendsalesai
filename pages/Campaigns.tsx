@@ -275,7 +275,7 @@ const Campaigns: React.FC = () => {
                         <button 
                             onClick={handleSaveTemplate}
                             disabled={isSavingTemplate}
-                            className="px-6 py-2 border border-primary text-primary dark:text-secondary dark:border-secondary rounded-lg font-bold hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors flex items-center gap-2"
+                          className="px-6 py-2 border border-primary text-primary dark:text-secondary dark:border-secondary rounded-lg font-bold hover:bg-secondary/10 dark:hover:bg-secondary/15 transition-colors flex items-center gap-2"
                         >
                             {isSavingTemplate ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                             Salvar Modelo
@@ -395,7 +395,7 @@ const Campaigns: React.FC = () => {
                      <button 
                         onClick={handleSubmit}
                         disabled={isLoading}
-                        className="px-8 py-2 bg-secondary text-white rounded-lg font-bold hover:bg-green-600 transition-colors shadow-md flex items-center gap-2"
+                      className="px-8 py-2 bg-secondary text-white rounded-lg font-bold hover:bg-secondary-dark transition-colors shadow-md flex items-center gap-2"
                     >
                         {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                         {isLoading ? 'Agendando...' : 'Lançar Campanha'}

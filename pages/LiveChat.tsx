@@ -595,7 +595,7 @@ const LiveChat: React.FC = () => {
                   <div 
                     key={conv.id}
                     onClick={() => setActiveChatId(conv.id)}
-                    className={`p-4 border-b border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${isSelected ? 'bg-green-50 dark:bg-primary/20 border-l-4 border-l-primary' : ''}`}
+                    className={`p-4 border-b border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${isSelected ? 'bg-secondary/10 dark:bg-primary/20 border-l-4 border-l-primary' : ''}`}
                   >
                     <div className="flex items-center gap-3">
                       <div className="relative">

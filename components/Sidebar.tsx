@@ -9,7 +9,7 @@ import { useSettings } from '../pages/Settings';
 const Sidebar: React.FC = () => {
   const [dateTime, setDateTime] = useState({ time: '', date: '' });
   const { logout, userRole } = useAuth();
-  const { isDarkMode, toggleTheme } = useTheme();
+  const { isDarkMode, toggleTheme, primaryColor } = useTheme();
   const { clearAllDrafts } = useSettings();
 
   // RBAC: Agents can only see Dashboard, Chat and Leads
@@ -76,7 +76,8 @@ const Sidebar: React.FC = () => {
         </div>
 
         {/* Date & Time Widget */}
-        <div className="bg-primary-dark/40 rounded-lg p-4 border border-white/20 flex flex-col items-center text-center">
+        <div className={`${primaryColor === 'black' ? 'bg-primary-dark' : 'bg-primary-dark/40'} rounded-lg p-4 border border-white/20 flex flex-col items-center text-center`}
+        >
           <div className="flex items-baseline gap-1 mb-1">
             <span className="text-2xl font-mono font-bold text-white tracking-widest leading-none">
               {dateTime.time}

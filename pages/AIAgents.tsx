@@ -44,7 +44,7 @@ Não seja insistente.`);
          </div>
          <button 
             onClick={handleSave}
-            className="px-4 py-2 bg-secondary text-white rounded-lg font-bold hover:bg-green-600 transition-colors shadow-md flex items-center gap-2"
+                className="px-4 py-2 bg-secondary text-white rounded-lg font-bold hover:bg-secondary-dark transition-colors shadow-md flex items-center gap-2"
          >
             <Save className="w-4 h-4" /> Salvar Alterações
          </button>

@@ -13,10 +13,32 @@
         const STORAGE_KEY = 'sendsales_primaryColor';
         const DEFAULT = 'petrol';
         const map = {
-          blue: { primary: '10 39 102', dark: '9 33 87' },
-          purple: { primary: '115 10 110', dark: '98 9 94' },
-          petrol: { primary: '0 74 60', dark: '0 63 51' },
-          black: { primary: '18 18 18', dark: '14 14 14' }
+          blue: {
+            primary: '10 39 102',
+            dark: '9 33 87',
+            secondary: '0 229 255',
+            secondaryDark: '0 195 215'
+          },
+          purple: {
+            primary: '115 10 110',
+            dark: '98 9 94',
+            secondary: '255 46 220',
+            secondaryDark: '220 35 190'
+          },
+          petrol: {
+            primary: '0 74 60',
+            dark: '0 63 51',
+            secondary: '180 255 42',
+            secondaryDark: '150 220 30'
+          },
+          black: {
+            primary: '18 18 18',
+            // pressed/hover for primary buttons
+            dark: '79 79 79',
+            // highlight text/borders
+            secondary: '200 200 200',
+            secondaryDark: '160 160 160'
+          }
         };
         try {
           const key = localStorage.getItem(STORAGE_KEY) || DEFAULT;
@@ -24,6 +46,8 @@
           const root = document.documentElement;
           root.style.setProperty('--ss-primary', def.primary);
           root.style.setProperty('--ss-primary-dark', def.dark);
+          root.style.setProperty('--ss-secondary', def.secondary);
+          root.style.setProperty('--ss-secondary-dark', def.secondaryDark);
         } catch (e) {
           // Ignore (privacy mode / storage disabled)
         }
@@ -35,9 +59,10 @@
         theme: {
           extend: {
             colors: {
-              primary: 'rgb(var(--ss-primary) / <alpha-value>)',
-              'primary-dark': 'rgb(var(--ss-primary-dark) / <alpha-value>)',
-              secondary: '#25D366',
+              primary: 'rgb(var(--ss-primary, 0 74 60) / <alpha-value>)',
+              'primary-dark': 'rgb(var(--ss-primary-dark, 0 63 51) / <alpha-value>)',
+              secondary: 'rgb(var(--ss-secondary, 37 211 102) / <alpha-value>)',
+              'secondary-dark': 'rgb(var(--ss-secondary-dark, 30 170 80) / <alpha-value>)',
               accent: '#6366F1',
               background: '#F3F4F6',
               text: '#1F2937',

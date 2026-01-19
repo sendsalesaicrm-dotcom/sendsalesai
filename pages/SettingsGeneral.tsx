@@ -76,7 +76,7 @@ const SettingsGeneral: React.FC = () => {
                             <div className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Prévia</div>
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-lg bg-primary shadow-sm" />
-                                <div className="w-10 h-10 rounded-lg bg-primary-dark shadow-sm" />
+                                <div className="w-10 h-10 rounded-lg bg-secondary shadow-sm" />
                                 <button className="ml-auto px-4 py-2 bg-primary text-white rounded-lg font-bold hover:bg-primary-dark transition-colors">
                                     Botão
                                 </button>

@@ -6,13 +6,44 @@ type PrimaryColorDefinition = {
   label: string;
   primaryRgb: string; // "R G B" (ex.: "0 74 60")
   primaryDarkRgb: string;
+  secondaryRgb: string;
+  secondaryDarkRgb: string;
 };
 
 export const PRIMARY_COLOR_OPTIONS: Record<PrimaryColorKey, PrimaryColorDefinition> = {
-  blue: { label: 'Azul escuro (#0A2766)', primaryRgb: '10 39 102', primaryDarkRgb: '9 33 87' },
-  purple: { label: 'Roxo escuro (#730A6E)', primaryRgb: '115 10 110', primaryDarkRgb: '98 9 94' },
-  petrol: { label: 'Azul petróleo escuro (#004A3C)', primaryRgb: '0 74 60', primaryDarkRgb: '0 63 51' },
-  black: { label: 'Preto (#141414)', primaryRgb: '18 18 18', primaryDarkRgb: '14 14 14' },
+  blue: {
+    label: 'Azul escuro (#0A2766)',
+    primaryRgb: '10 39 102',
+    primaryDarkRgb: '9 33 87',
+    // Complementar: ciano elétrico
+    secondaryRgb: '0 229 255',
+    secondaryDarkRgb: '0 195 215',
+  },
+  purple: {
+    label: 'Roxo escuro (#730A6E)',
+    primaryRgb: '115 10 110',
+    primaryDarkRgb: '98 9 94',
+    // Complementar: rosa choque
+    secondaryRgb: '255 46 220',
+    secondaryDarkRgb: '220 35 190',
+  },
+  petrol: {
+    label: 'Azul petróleo escuro (#004A3C)',
+    primaryRgb: '0 74 60',
+    primaryDarkRgb: '0 63 51',
+    // Complementar: verde lima
+    secondaryRgb: '180 255 42',
+    secondaryDarkRgb: '150 220 30',
+  },
+  black: {
+    label: 'Preto (#121212)',
+    primaryRgb: '18 18 18',
+    // No tema preto, usamos um "pressed" cinza (como no relógio)
+    primaryDarkRgb: '79 79 79',
+    // Complementar: cinza claro para textos/bordas de destaque
+    secondaryRgb: '200 200 200',
+    secondaryDarkRgb: '160 160 160',
+  },
 };
 
 const PRIMARY_COLOR_STORAGE_KEY = 'sendsales_primaryColor';
@@ -60,6 +91,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const def = PRIMARY_COLOR_OPTIONS[primaryColor] ?? PRIMARY_COLOR_OPTIONS[DEFAULT_PRIMARY_COLOR];
     root.style.setProperty('--ss-primary', def.primaryRgb);
     root.style.setProperty('--ss-primary-dark', def.primaryDarkRgb);
+    root.style.setProperty('--ss-secondary', def.secondaryRgb);
+    root.style.setProperty('--ss-secondary-dark', def.secondaryDarkRgb);
     localStorage.setItem(PRIMARY_COLOR_STORAGE_KEY, primaryColor);
   }, [primaryColor]);
 

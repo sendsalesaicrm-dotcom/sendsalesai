@@ -80,7 +80,7 @@ const Login: React.FC = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pl-10 sm:text-sm border-gray-300 rounded-lg focus:ring-primary focus:border-primary p-2.5 border transition-colors bg-gray-50 focus:bg-white"
+                  className="block w-full pl-10 sm:text-sm border-gray-300 rounded-lg focus:ring-[#005C4B] focus:border-[#005C4B] p-2.5 border transition-colors bg-gray-50 focus:bg-white"
                   placeholder="seu@email.com"
                 />
               </div>
@@ -101,7 +101,7 @@ const Login: React.FC = () => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-10 pr-12 sm:text-sm border-gray-300 rounded-lg focus:ring-primary focus:border-primary p-2.5 border transition-colors bg-gray-50 focus:bg-white"
+                  className="block w-full pl-10 pr-12 sm:text-sm border-gray-300 rounded-lg focus:ring-[#005C4B] focus:border-[#005C4B] p-2.5 border transition-colors bg-gray-50 focus:bg-white"
                   placeholder="••••••••"
                 />
                 <button
@@ -116,7 +116,7 @@ const Login: React.FC = () => {
             </div>
 
             <div className="-mt-2 flex justify-end">
-              <Link to="/forgot-password" className="text-sm font-medium text-primary hover:underline">
+              <Link to="/forgot-password" className="text-sm font-medium text-[#005C4B] hover:underline">
                 Esqueceu sua senha?
               </Link>
             </div>
@@ -126,7 +126,7 @@ const Login: React.FC = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#005C4B] hover:bg-[#004a3c] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#005C4B] transition-all disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {isLoading ? (
                   <>
