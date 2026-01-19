@@ -1,10 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { MessageSquare } from 'lucide-react';
 
-const META_LOGO_URL = '/logo2.svg';
-const EVOLUTION_LOGO_URL = '/evo1.svg';
-const GENERAL_LOGO_URL = '/gear1.svg';
+const META_LOGO_URL = 'https://ohgcufkcrpehkvxavmhw.supabase.co/storage/v1/object/public/logo/logo2.svg';
+const EVOLUTION_LOGO_URL = 'https://ohgcufkcrpehkvxavmhw.supabase.co/storage/v1/object/public/logo/evo1.svg';
+const GENERAL_LOGO_URL = 'https://ohgcufkcrpehkvxavmhw.supabase.co/storage/v1/object/public/logo/gear1.svg';
 
 const SettingsOverview: React.FC = () => {
   return (

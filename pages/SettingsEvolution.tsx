@@ -22,7 +22,7 @@ import {
   , Sliders
 } from 'lucide-react';
 
-const EVOLUTION_LOGO_URL = '/evo1.svg';
+const EVOLUTION_LOGO_URL = 'https://ohgcufkcrpehkvxavmhw.supabase.co/storage/v1/object/public/logo/evo1.svg';
 
 const SettingsEvolution: React.FC = () => {
   const ctx = useContext(SettingsContext);

@@ -4,7 +4,7 @@ import { SettingsContext } from './Settings';
 import { Loader2, Wifi, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-const META_LOGO_URL = '/logo2.svg';
+const META_LOGO_URL = 'https://ohgcufkcrpehkvxavmhw.supabase.co/storage/v1/object/public/logo/logo2.svg';
 
 const SettingsMeta: React.FC = () => {
   const ctx = useContext(SettingsContext);

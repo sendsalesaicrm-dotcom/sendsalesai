@@ -4,7 +4,7 @@ import { SettingsContext } from './Settings';
 import { Clock, Save, RefreshCw, Palette } from 'lucide-react';
 import { PRIMARY_COLOR_OPTIONS, useTheme } from '../context/ThemeContext';
 
-const GENERAL_GEAR_URL = '/gear1.svg';
+const GENERAL_GEAR_URL = 'https://ohgcufkcrpehkvxavmhw.supabase.co/storage/v1/object/public/logo/gear1.svg';
 
 const SettingsGeneral: React.FC = () => {
   const ctx = useContext(SettingsContext);
