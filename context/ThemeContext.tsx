@@ -12,7 +12,7 @@ export const PRIMARY_COLOR_OPTIONS: Record<PrimaryColorKey, PrimaryColorDefiniti
   blue: { label: 'Azul escuro (#0A2766)', primaryRgb: '10 39 102', primaryDarkRgb: '9 33 87' },
   purple: { label: 'Roxo escuro (#730A6E)', primaryRgb: '115 10 110', primaryDarkRgb: '98 9 94' },
   petrol: { label: 'Azul petróleo escuro (#004A3C)', primaryRgb: '0 74 60', primaryDarkRgb: '0 63 51' },
-  black: { label: 'Preto (#000000)', primaryRgb: '0 0 0', primaryDarkRgb: '0 0 0' },
+  black: { label: 'Preto (#141414)', primaryRgb: '18 18 18', primaryDarkRgb: '14 14 14' },
 };
 
 const PRIMARY_COLOR_STORAGE_KEY = 'sendsales_primaryColor';

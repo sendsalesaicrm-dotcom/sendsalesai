@@ -56,7 +56,7 @@ const SignUp: React.FC = () => {
           
           <div className="flex flex-col items-center mb-8">
             <img 
-              src="https://ohgcufkcrpehkvxavmhw.supabase.co/storage/v1/object/public/logo/x.png" 
+              src="https://ohgcufkcrpehkvxavmhw.supabase.co/storage/v1/object/public/logo/logo%20(1).png" 
               alt="SendSales.ai" 
               className="w-16 h-16 mb-4 object-contain" 
             />

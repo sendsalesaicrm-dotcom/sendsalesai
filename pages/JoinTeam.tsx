@@ -62,7 +62,7 @@ const JoinTeam: React.FC = () => {
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
         <img 
-            src="https://ohgcufkcrpehkvxavmhw.supabase.co/storage/v1/object/public/logo/x.png" 
+          src="https://ohgcufkcrpehkvxavmhw.supabase.co/storage/v1/object/public/logo/logo%20(1).png" 
             alt="SendSales.ai" 
             className="w-16 h-16 mx-auto mb-6 object-contain" 
         />

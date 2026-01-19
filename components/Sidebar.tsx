@@ -67,7 +67,7 @@ const Sidebar: React.FC = () => {
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 flex items-center justify-center">
              <img 
-               src="https://ohgcufkcrpehkvxavmhw.supabase.co/storage/v1/object/public/logo/x.png" 
+               src="https://ohgcufkcrpehkvxavmhw.supabase.co/storage/v1/object/public/logo/logo%20(1).png" 
                alt="SendSales Logo" 
                className="w-full h-full object-contain"
              />
@@ -76,7 +76,7 @@ const Sidebar: React.FC = () => {
         </div>
 
         {/* Date & Time Widget */}
-        <div className="bg-primary-dark/40 rounded-lg p-4 border border-primary-dark/60 flex flex-col items-center text-center">
+        <div className="bg-primary-dark/40 rounded-lg p-4 border border-white/20 flex flex-col items-center text-center">
           <div className="flex items-baseline gap-1 mb-1">
             <span className="text-2xl font-mono font-bold text-white tracking-widest leading-none">
               {dateTime.time}
