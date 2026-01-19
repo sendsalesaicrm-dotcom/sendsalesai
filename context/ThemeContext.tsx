@@ -39,7 +39,7 @@ export const PRIMARY_COLOR_OPTIONS: Record<PrimaryColorKey, PrimaryColorDefiniti
     label: 'Preto (#121212)',
     primaryRgb: '18 18 18',
     // No tema preto, usamos um "pressed" cinza (como no relógio)
-    primaryDarkRgb: '79 79 79',
+    primaryDarkRgb: '38 38 38',
     // Complementar: cinza claro para textos/bordas de destaque
     secondaryRgb: '200 200 200',
     secondaryDarkRgb: '160 160 160',
