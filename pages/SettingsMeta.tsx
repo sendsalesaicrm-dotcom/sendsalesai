@@ -1,8 +1,10 @@
 import React, { useContext, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { SettingsContext } from './Settings';
-import { MessageSquare, Loader2, Wifi, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Loader2, Wifi, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+
+const META_LOGO_URL = '/logo2.svg';
 
 const SettingsMeta: React.FC = () => {
   const ctx = useContext(SettingsContext);
@@ -36,7 +38,7 @@ const SettingsMeta: React.FC = () => {
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
       <div className="p-6 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between">
           <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 text-secondary" /> Conexão WhatsApp API (Meta Oficial)
+            <img src={META_LOGO_URL} alt="Meta" className="w-6 h-6" /> Conexão WhatsApp API (Meta Oficial)
           </h2>
           <div className="flex items-center gap-4">
             {connectionStatus === 'success' && <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs px-3 py-1 rounded-full font-bold flex items-center gap-1">Conectado</span>}

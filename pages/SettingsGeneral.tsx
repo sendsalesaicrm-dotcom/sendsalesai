@@ -1,8 +1,10 @@
 import React, { useContext } from 'react';
 import { Link } from 'react-router-dom';
 import { SettingsContext } from './Settings';
-import { Globe, Clock, Save, RefreshCw, Palette } from 'lucide-react';
+import { Clock, Save, RefreshCw, Palette } from 'lucide-react';
 import { PRIMARY_COLOR_OPTIONS, useTheme } from '../context/ThemeContext';
+
+const GENERAL_GEAR_URL = '/gear1.svg';
 
 const SettingsGeneral: React.FC = () => {
   const ctx = useContext(SettingsContext);
@@ -17,7 +19,7 @@ const SettingsGeneral: React.FC = () => {
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
         <div className="p-6 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between">
             <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                <Globe className="w-5 h-5 text-primary dark:text-secondary" /> Configurações Regionais
+                <img src={GENERAL_GEAR_URL} alt="Geral" className="w-6 h-6" /> Configurações Regionais
             </h2>
             <Link to="/settings" className="px-3 py-1 bg-primary text-white rounded-md text-sm hover:bg-primary-dark">Voltar</Link>
         </div>

@@ -22,6 +22,8 @@ import {
   , Sliders
 } from 'lucide-react';
 
+const EVOLUTION_LOGO_URL = '/evo1.svg';
+
 const SettingsEvolution: React.FC = () => {
   const ctx = useContext(SettingsContext);
   const { currentOrganization } = useAuth();
@@ -147,7 +149,7 @@ const SettingsEvolution: React.FC = () => {
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
         <div className="p-6 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between">
             <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                <Server className="w-5 h-5 text-blue-500" /> Conectar Instância Evolution Existente
+            <img src={EVOLUTION_LOGO_URL} alt="Evolution" className="w-6 h-6" /> Conectar Instância Evolution Existente
             </h2>
             <Link to="/settings" className="px-4 py-1.5 bg-primary text-white rounded-md text-sm font-bold hover:bg-primary-dark transition-all">Voltar</Link>
         </div>
