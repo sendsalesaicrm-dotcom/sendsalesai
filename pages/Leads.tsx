@@ -579,7 +579,7 @@ const Leads: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setDetailsModalLead(null)}
-                  className="px-4 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-[#004a3c]"
+                  className="px-4 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-primary-dark"
                 >
                   Fechar
                 </button>
@@ -613,7 +613,7 @@ const Leads: React.FC = () => {
           </div>
           <button 
             onClick={() => setIsNewLeadModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg font-bold hover:bg-[#004a3c] transition-colors shadow-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg font-bold hover:bg-primary-dark transition-colors shadow-sm"
           >
               <Plus className="w-4 h-4" /> Novo Lead
           </button>

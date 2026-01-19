@@ -227,7 +227,7 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onSuccess 
             <button 
               type="submit" 
               disabled={isLoading || isCheckingLeadLimit || isLeadLimitReached}
-              className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-[#004a3c] transition-colors flex items-center gap-2 disabled:opacity-70"
+              className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-dark transition-colors flex items-center gap-2 disabled:opacity-70"
             >
               {isLoading || isCheckingLeadLimit ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Salvar Lead

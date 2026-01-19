@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, MoreVertical, Send, Paperclip, Bot, Sparkles, User, Tag, Phone, Edit2, Loader2, MessageSquareOff, Plus, ShieldCheck } from 'lucide-react';
+import { Search, MoreVertical, Send, Paperclip, Bot, Sparkles, User, Tag, Phone, Edit2, Loader2, MessageSquareOff, Plus, ShieldCheck, RefreshCw } from 'lucide-react';
 import { Conversation, Message, Lead } from '../types';
 import { suggestReply } from '../services/geminiService';
 import { sendMessage } from '../services/sendMessageService';
@@ -29,8 +29,107 @@ const LiveChat: React.FC = () => {
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notesDraft, setNotesDraft] = useState('');
   const [isSavingNotes, setIsSavingNotes] = useState(false);
+
+  const [evolutionUrl, setEvolutionUrl] = useState<string>('');
+  const [evolutionApiKey, setEvolutionApiKey] = useState<string>('');
+  const [evolutionInstance, setEvolutionInstance] = useState<string>('');
+  const [isLoadingEvolutionConfig, setIsLoadingEvolutionConfig] = useState<boolean>(false);
+  const [isSyncingMessages, setIsSyncingMessages] = useState<boolean>(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const ensureAbsoluteUrl = (url: string) => {
+    let cleaned = (url || '').trim().replace(/^\/+/, '');
+    if (cleaned.startsWith('https:/') && !cleaned.startsWith('https://')) {
+      cleaned = cleaned.replace('https:/', 'https://');
+    }
+    cleaned = cleaned.replace('http://', 'https://');
+    if (!cleaned.startsWith('http')) cleaned = 'https://' + cleaned;
+    return cleaned.replace(/\/+$/, '');
+  };
+
+  const extractEvolutionMessageText = (raw: any): string => {
+    return (
+      raw?.content ||
+      raw?.text ||
+      raw?.message?.conversation ||
+      raw?.message?.extendedTextMessage?.text ||
+      raw?.message?.imageMessage?.caption ||
+      raw?.message?.videoMessage?.caption ||
+      raw?.body?.text ||
+      ''
+    );
+  };
+
+  const getEvolutionMessageTimestampIso = (raw: any): string => {
+    const ts =
+      raw?.createdAt ||
+      raw?.created_at ||
+      raw?.timestamp ||
+      raw?.messageTimestamp ||
+      raw?.message?.messageTimestamp ||
+      raw?.message?.timestamp;
+
+    if (typeof ts === 'string') {
+      const d = new Date(ts);
+      if (!Number.isNaN(d.getTime())) return d.toISOString();
+    }
+
+    if (typeof ts === 'number' && Number.isFinite(ts)) {
+      const ms = ts > 10_000_000_000 ? ts : ts * 1000;
+      const d = new Date(ms);
+      if (!Number.isNaN(d.getTime())) return d.toISOString();
+    }
+
+    return new Date().toISOString();
+  };
+
+  const getEvolutionMessageRemoteId = (raw: any): string | null => {
+    return raw?.id || raw?.messageId || raw?.key?.id || raw?.key?.idMessage || null;
+  };
+
+  // Load Evolution config from organization
+  useEffect(() => {
+    if (!currentOrganization?.id) {
+      setEvolutionUrl('');
+      setEvolutionApiKey('');
+      setEvolutionInstance('');
+      return;
+    }
+
+    let isCancelled = false;
+    const load = async () => {
+      setIsLoadingEvolutionConfig(true);
+      try {
+        const { data, error } = await supabase
+          .from('organizations')
+          .select('evolution_url, evolution_api_key, evolution_instance')
+          .eq('id', currentOrganization.id)
+          .single();
+
+        if (error) throw error;
+
+        if (!isCancelled) {
+          setEvolutionUrl(((data as any)?.evolution_url || '').trim());
+          setEvolutionApiKey(((data as any)?.evolution_api_key || '').trim());
+          setEvolutionInstance(((data as any)?.evolution_instance || '').trim());
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          setEvolutionUrl('');
+          setEvolutionApiKey('');
+          setEvolutionInstance('');
+        }
+      } finally {
+        if (!isCancelled) setIsLoadingEvolutionConfig(false);
+      }
+    };
+
+    load();
+    return () => {
+      isCancelled = true;
+    };
+  }, [currentOrganization?.id]);
 
   // 1. Fetch Conversations (Leads)
   const fetchConversations = useCallback(async () => {
@@ -328,6 +427,114 @@ const LiveChat: React.FC = () => {
     setIsGeneratingSuggestion(false);
   };
 
+  const syncMessages = useCallback(async () => {
+    if (!activeChatId || !activeLead?.phone) {
+      showToast('Selecione um lead com telefone para sincronizar.', 'info');
+      return;
+    }
+
+    if (!evolutionUrl || !evolutionApiKey || !evolutionInstance) {
+      showToast('Configure Evolution URL, API Key e Instância em Configurações.', 'error');
+      return;
+    }
+
+    setIsSyncingMessages(true);
+
+    try {
+      const base = ensureAbsoluteUrl(evolutionUrl);
+      const instance = encodeURIComponent(evolutionInstance);
+
+      const phoneDigits = String(activeLead.phone).replace(/\D+/g, '');
+      const remoteJid = phoneDigits ? `${phoneDigits}@s.whatsapp.net` : '';
+
+      const url = new URL(`${base}/chat/findMessages/${instance}`);
+      // Different Evolution versions use different param names; we send a couple defensively.
+      if (phoneDigits) url.searchParams.set('number', phoneDigits);
+      if (remoteJid) url.searchParams.set('remoteJid', remoteJid);
+      url.searchParams.set('limit', '100');
+
+      const res = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: evolutionApiKey,
+        },
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        const message = (data as any)?.message || (data as any)?.error || 'Falha ao sincronizar mensagens.';
+        throw new Error(message);
+      }
+
+      const rawList: any[] = Array.isArray(data)
+        ? data
+        : Array.isArray((data as any)?.messages)
+          ? (data as any).messages
+          : Array.isArray((data as any)?.data)
+            ? (data as any).data
+            : [];
+
+      if (rawList.length === 0) {
+        showToast('Nenhuma mensagem nova encontrada.', 'info');
+        return;
+      }
+
+      let addedCount = 0;
+
+      setMessages((prev) => {
+        const existingSignatures = new Set(
+          prev.map((m) => `${m.sender_type}|${m.content}|${m.created_at}`)
+        );
+
+        const toAdd: Message[] = [];
+
+        for (const raw of rawList) {
+          const content = extractEvolutionMessageText(raw);
+          if (!content) continue;
+
+          const createdAt = getEvolutionMessageTimestampIso(raw);
+          const fromMe = Boolean(raw?.fromMe ?? raw?.key?.fromMe ?? raw?.message?.key?.fromMe);
+          const senderType: Message['sender_type'] = fromMe ? 'user' : 'contact';
+          const signature = `${senderType}|${content}|${createdAt}`;
+          if (existingSignatures.has(signature)) continue;
+
+          const remoteId = getEvolutionMessageRemoteId(raw);
+          const id = remoteId ? `evo-${remoteId}` : `evo-${createdAt}-${Math.random().toString(16).slice(2)}`;
+
+          toAdd.push({
+            id,
+            lead_id: activeChatId,
+            sender_type: senderType,
+            is_ai_generated: false,
+            content,
+            created_at: createdAt,
+          });
+          existingSignatures.add(signature);
+        }
+
+        addedCount = toAdd.length;
+        if (addedCount === 0) return prev;
+
+        const merged = [...prev, ...toAdd].sort(
+          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+        return merged;
+      });
+
+      if (addedCount > 0) {
+        showToast(`Sincronizado: ${addedCount} novas mensagens.`, 'success');
+      } else {
+        showToast('Nenhuma mensagem nova encontrada.', 'info');
+      }
+    } catch (err: any) {
+      console.error('syncMessages error', err);
+      showToast(err?.message || 'Erro ao sincronizar mensagens.', 'error');
+    } finally {
+      setIsSyncingMessages(false);
+    }
+  }, [activeChatId, activeLead?.phone, evolutionUrl, evolutionApiKey, evolutionInstance, showToast]);
+
   return (
     <div className="flex h-[calc(100vh-4rem)] bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
       
@@ -388,7 +595,7 @@ const LiveChat: React.FC = () => {
                   <div 
                     key={conv.id}
                     onClick={() => setActiveChatId(conv.id)}
-                    className={`p-4 border-b border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${isSelected ? 'bg-green-50 dark:bg-[#005c4b]/20 border-l-4 border-l-primary' : ''}`}
+                    className={`p-4 border-b border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${isSelected ? 'bg-green-50 dark:bg-primary/20 border-l-4 border-l-primary' : ''}`}
                   >
                     <div className="flex items-center gap-3">
                       <div className="relative">
@@ -439,6 +646,16 @@ const LiveChat: React.FC = () => {
                 )}
                 
                 <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={syncMessages}
+                  disabled={isLoadingEvolutionConfig || isSyncingMessages || !activeLead?.phone}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Sincronizar mensagens (manual)"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isSyncingMessages ? 'animate-spin' : ''}`} />
+                  <span className="text-sm font-semibold">Sincronizar</span>
+                </button>
                 <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-600">
                     <Bot className={`w-4 h-4 ${isAiActive ? 'text-accent' : 'text-gray-400'}`} />
                     <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Agente IA</span>
@@ -473,7 +690,7 @@ const LiveChat: React.FC = () => {
                     return (
                         <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                             <div className={`max-w-[70%] rounded-lg p-3 shadow-sm relative ${
-                            isMe ? (isAi ? 'bg-accent/10 border border-accent/20 text-gray-800 dark:text-gray-100 rounded-tr-none' : 'bg-[#d9fdd3] dark:bg-[#005c4b] text-gray-800 dark:text-gray-100 rounded-tr-none') : 
+                            isMe ? (isAi ? 'bg-accent/10 border border-accent/20 text-gray-800 dark:text-gray-100 rounded-tr-none' : 'bg-[#d9fdd3] dark:bg-primary text-gray-800 dark:text-gray-100 rounded-tr-none') : 
                             'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-tl-none'
                             }`}>
                             {isAi && (
@@ -529,7 +746,7 @@ const LiveChat: React.FC = () => {
                 <button 
                     onClick={() => handleSendMessage(inputMessage)}
                     disabled={!inputMessage.trim() || isSending}
-                    className="p-3 bg-primary text-white rounded-full hover:bg-[#004a3c] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+                  className="p-3 bg-primary text-white rounded-full hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
                 >
                     {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                 </button>

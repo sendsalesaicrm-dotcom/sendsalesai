@@ -62,7 +62,7 @@ const Sidebar: React.FC = () => {
 
   return (
     <div className="w-64 bg-primary text-white flex flex-col h-screen fixed left-0 top-0 shadow-xl z-50 transition-colors duration-300">
-      <div className="p-6 border-b border-[#004a3c]">
+      <div className="p-6 border-b border-primary-dark/40">
         {/* Logo Section */}
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 flex items-center justify-center">
@@ -76,7 +76,7 @@ const Sidebar: React.FC = () => {
         </div>
 
         {/* Date & Time Widget */}
-        <div className="bg-[#004a3c]/40 rounded-lg p-4 border border-[#004a3c] flex flex-col items-center text-center">
+        <div className="bg-primary-dark/40 rounded-lg p-4 border border-primary-dark/60 flex flex-col items-center text-center">
           <div className="flex items-baseline gap-1 mb-1">
             <span className="text-2xl font-mono font-bold text-white tracking-widest leading-none">
               {dateTime.time}
@@ -97,8 +97,8 @@ const Sidebar: React.FC = () => {
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
                 isActive
-                  ? 'bg-[#004a3c] text-secondary font-medium shadow-md border-l-4 border-secondary'
-                  : 'hover:bg-[#004a3c]/50 text-gray-300 hover:text-white'
+                  ? 'bg-primary-dark text-secondary font-medium shadow-md border-l-4 border-secondary'
+                  : 'hover:bg-primary-dark/50 text-gray-300 hover:text-white'
               }`
             }
           >
@@ -108,12 +108,12 @@ const Sidebar: React.FC = () => {
         ))}
       </nav>
 
-      <div className="p-4 border-t border-[#004a3c] space-y-1">
+      <div className="p-4 border-t border-primary-dark/40 space-y-1">
         
         {/* Dark Mode Toggle */}
         <div 
           onClick={toggleTheme}
-          className="flex items-center justify-between px-4 py-3 rounded-lg text-gray-300 hover:text-white hover:bg-[#004a3c]/50 transition-colors cursor-pointer group mb-1"
+          className="flex items-center justify-between px-4 py-3 rounded-lg text-gray-300 hover:text-white hover:bg-primary-dark/50 transition-colors cursor-pointer group mb-1"
         >
           <div className="flex items-center gap-3">
              <Moon className="w-5 h-5" />
@@ -127,7 +127,7 @@ const Sidebar: React.FC = () => {
         {!isAgent && (
           <NavLink
             to="/settings"
-            className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-[#004a3c]/50 rounded-lg transition-colors"
+            className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-primary-dark/50 rounded-lg transition-colors"
           >
             <Settings className="w-5 h-5" />
             <span>Configurações</span>

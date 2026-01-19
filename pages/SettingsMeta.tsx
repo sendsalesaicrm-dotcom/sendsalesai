@@ -40,7 +40,7 @@ const SettingsMeta: React.FC = () => {
           </h2>
           <div className="flex items-center gap-4">
             {connectionStatus === 'success' && <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs px-3 py-1 rounded-full font-bold flex items-center gap-1">Conectado</span>}
-            <Link to="/settings" className="px-3 py-1 bg-primary text-white rounded-md text-sm hover:bg-[#004a3c]">Voltar</Link>
+            <Link to="/settings" className="px-3 py-1 bg-primary text-white rounded-md text-sm hover:bg-primary-dark">Voltar</Link>
           </div>
       </div>
       {!isOwner && (
@@ -111,7 +111,7 @@ const SettingsMeta: React.FC = () => {
                <button onClick={handleTestConnection} disabled={isReadOnly || isTestingConnection || !phoneId} className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-400 disabled:opacity-60 disabled:cursor-not-allowed">
                    {isTestingConnection ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wifi className="w-4 h-4" />} Testar Conexão Oficial
                </button>
-               <button onClick={handleSaveWhatsApp} disabled={isReadOnly || isLoadingConfig} className="px-6 py-2 bg-primary text-white rounded-lg font-bold hover:bg-[#004a3c] transition-colors shadow-md disabled:opacity-60 disabled:cursor-not-allowed">Salvar Credenciais Meta</button>
+               <button onClick={handleSaveWhatsApp} disabled={isReadOnly || isLoadingConfig} className="px-6 py-2 bg-primary text-white rounded-lg font-bold hover:bg-primary-dark transition-colors shadow-md disabled:opacity-60 disabled:cursor-not-allowed">Salvar Credenciais Meta</button>
            </div>
       </div>
     </div>

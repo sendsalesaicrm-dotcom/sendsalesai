@@ -9,7 +9,7 @@ const ProtectedRoute: React.FC = () => {
   if (isLoading) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-gray-50">
-        <Loader2 className="w-8 h-8 text-[#005C4B] animate-spin" />
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
       </div>
     );
   }

@@ -149,7 +149,7 @@ const SettingsEvolution: React.FC = () => {
             <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
                 <Server className="w-5 h-5 text-blue-500" /> Conectar Instância Evolution Existente
             </h2>
-            <Link to="/settings" className="px-4 py-1.5 bg-primary text-white rounded-md text-sm font-bold hover:bg-[#004a3c] transition-all">Voltar</Link>
+            <Link to="/settings" className="px-4 py-1.5 bg-primary text-white rounded-md text-sm font-bold hover:bg-primary-dark transition-all">Voltar</Link>
         </div>
         <div className="p-8 space-y-6">
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -170,7 +170,7 @@ const SettingsEvolution: React.FC = () => {
                 </div>
              </div>
              <div className="flex items-center justify-end pt-4 border-t border-gray-100 dark:border-gray-700">
-                 <button onClick={handleSaveEvolution} disabled={isSavingEvolution} className="px-6 py-2 bg-primary text-white rounded-lg font-bold flex items-center gap-2 hover:bg-[#004a3c] transition-all shadow-md active:scale-95">
+                  <button onClick={handleSaveEvolution} disabled={isSavingEvolution} className="px-6 py-2 bg-primary text-white rounded-lg font-bold flex items-center gap-2 hover:bg-primary-dark transition-all shadow-md active:scale-95">
                     {isSavingEvolution ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} Salvar Conexão Operacional
                  </button>
              </div>
@@ -232,7 +232,7 @@ const SettingsEvolution: React.FC = () => {
             <button
               onClick={handleCreateInstance}
               disabled={isCreatingInstance || isLoadingInstanceLimit || isInstanceLimitReached || !newInstanceName || !evolutionGlobalKey}
-              className="px-8 py-2.5 bg-primary text-white rounded-lg font-bold hover:bg-[#004a3c] transition-all shadow-md flex items-center gap-2 disabled:opacity-50"
+              className="px-8 py-2.5 bg-primary text-white rounded-lg font-bold hover:bg-primary-dark transition-all shadow-md flex items-center gap-2 disabled:opacity-50"
               title={isInstanceLimitReached ? 'Limite de instâncias atingido' : undefined}
             >
               {isCreatingInstance ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} Criar Instância
@@ -241,19 +241,19 @@ const SettingsEvolution: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. GERENCIAR INSTÂNCIAS - VISUAL VERDE [#004a3c] */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors border-t-4 border-t-[#004a3c] mt-6">
+      {/* 3. GERENCIAR INSTÂNCIAS */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors border-t-4 border-t-primary mt-6">
         <div className="p-6 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex justify-between items-center">
           <div>
               <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                  <List className="w-5 h-5 text-[#004a3c]" /> Gerenciar Instâncias do Servidor
+                  <List className="w-5 h-5 text-primary" /> Gerenciar Instâncias do Servidor
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Status em tempo real, presença e manutenção de instâncias.</p>
           </div>
           <button 
               onClick={handleFetchInstances} 
               disabled={isFetchingInstances || !evolutionGlobalKey}
-              className="px-6 py-2 bg-primary text-white rounded-lg font-bold hover:bg-[#004a3c] transition-colors shadow-md flex items-center gap-2 disabled:opacity-50"
+              className="px-6 py-2 bg-primary text-white rounded-lg font-bold hover:bg-primary-dark transition-colors shadow-md flex items-center gap-2 disabled:opacity-50"
           >
               {isFetchingInstances ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
               {isFetchingInstances ? 'Buscando...' : 'Buscar Instâncias'}
@@ -322,13 +322,13 @@ const SettingsEvolution: React.FC = () => {
 
                                           <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1"></div>
                                           
-                                          <button onClick={() => {
+                                            <button onClick={() => {
                                               setEvolutionUrl(newInstanceBaseUrl.replace(/\/$/, ''));
                                               setEvolutionInstance(inst.name);
                                               setEvolutionApiKey(inst.token);
                                               handleFindWebhook(inst.name, inst.token); // Sincroniza os campos de Webhook automaticamente
                                               showToast && showToast(`Dados de "${inst.name}" carregados!`, 'success');
-                                          }} className="px-3 py-1 bg-primary text-white rounded text-xs font-bold hover:bg-[#004a3c] transition-all">USAR</button>
+                                            }} className="px-3 py-1 bg-primary text-white rounded text-xs font-bold hover:bg-primary-dark transition-all">USAR</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -345,11 +345,11 @@ const SettingsEvolution: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. GERAR QR CODE - VISUAL VERDE [#004a3c] */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors border-t-4 border-t-[#004a3c] mt-6">
+      {/* 4. GERAR QR CODE */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors border-t-4 border-t-primary mt-6">
         <div className="p-6 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
             <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                <QrCode className="w-5 h-5 text-[#004a3c]" /> Gerar QR Code de Conexão
+              <QrCode className="w-5 h-5 text-primary" /> Gerar QR Code de Conexão
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Gere o código para parear seu celular com a instância Evolution (Baileys).</p>
         </div>
@@ -364,7 +364,7 @@ const SettingsEvolution: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Token da Instância</label>
                 <input type="password" value={connectApiKey} onChange={(e) => setConnectApiKey(e.target.value)} placeholder="Token da instância..." className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 bg-white dark:bg-gray-700" />
               </div>
-              <button onClick={handleGetQrCode} disabled={isGeneratingQr || !connectInstanceName || !connectApiKey} className="w-full py-3 bg-primary text-white rounded-lg font-bold hover:bg-[#004a3c] transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50">
+              <button onClick={handleGetQrCode} disabled={isGeneratingQr || !connectInstanceName || !connectApiKey} className="w-full py-3 bg-primary text-white rounded-lg font-bold hover:bg-primary-dark transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50">
                 {isGeneratingQr ? <Loader2 className="w-5 h-5 animate-spin" /> : <QrCode className="w-5 h-5" />} 
                 {isGeneratingQr ? 'Gerando...' : 'Gerar QR Code Agora'}
               </button>
@@ -376,7 +376,7 @@ const SettingsEvolution: React.FC = () => {
                   <div className="bg-white p-4 rounded-xl shadow-xl mb-4 border border-gray-100">
                     <img src={qrCodeBase64} alt="QR Code" className="w-56 h-56 mx-auto" />
                   </div>
-                  <p className="text-sm font-black text-[#004a3c] uppercase tracking-wider">Escaneie com seu WhatsApp</p>
+                  <p className="text-sm font-black text-primary uppercase tracking-wider">Escaneie com seu WhatsApp</p>
                   <p className="text-[10px] text-gray-400 mt-1 uppercase">O código expira em breve.</p>
                 </div>
               ) : (
@@ -477,7 +477,7 @@ const SettingsEvolution: React.FC = () => {
                             }}
                             className="sr-only peer"
                           />
-                          <div className="w-11 h-6 bg-gray-200 rounded-full peer-focus:outline-none dark:bg-gray-700 peer-checked:bg-[#004a3c] peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                          <div className="w-11 h-6 bg-gray-200 rounded-full peer-focus:outline-none dark:bg-gray-700 peer-checked:bg-primary peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                         </div>
                       </label>
                     ))}
@@ -495,7 +495,7 @@ const SettingsEvolution: React.FC = () => {
                 <button
                   onClick={() => handleSetWebhook(evolutionInstance, evolutionApiKey)}
                   disabled={isProcessingWebhook || !evolutionInstance || !evolutionApiKey}
-                  className="px-6 py-2 bg-primary text-white rounded-lg font-bold flex items-center gap-2 hover:bg-[#004a3c] transition-all shadow-md active:scale-95"
+                  className="px-6 py-2 bg-primary text-white rounded-lg font-bold flex items-center gap-2 hover:bg-primary-dark transition-all shadow-md active:scale-95"
                 >
                   {isProcessingWebhook ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} Salvar Webhook
                 </button>
@@ -519,7 +519,7 @@ const SettingsEvolution: React.FC = () => {
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Rejeitar Ligações</span>
                 <div className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" checked={rejectCall} onChange={e => setRejectCall(e.target.checked)} className="sr-only peer" />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#004a3c]"></div>
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                 </div>
               </label>
 
@@ -527,7 +527,7 @@ const SettingsEvolution: React.FC = () => {
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Ignorar Grupos</span>
                 <div className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" checked={groupsIgnore} onChange={e => setGroupsIgnore(e.target.checked)} className="sr-only peer" />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#004a3c]"></div>
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                 </div>
               </label>
 
@@ -535,7 +535,7 @@ const SettingsEvolution: React.FC = () => {
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Always Online</span>
                 <div className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" checked={alwaysOnline} onChange={e => setAlwaysOnline(e.target.checked)} className="sr-only peer" />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#004a3c]"></div>
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                 </div>
               </label>
 
@@ -543,7 +543,7 @@ const SettingsEvolution: React.FC = () => {
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Marcar Mensagens como Lidas</span>
                 <div className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" checked={readMessages} onChange={e => setReadMessages(e.target.checked)} className="sr-only peer" />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#004a3c]"></div>
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                 </div>
               </label>
 
@@ -551,7 +551,7 @@ const SettingsEvolution: React.FC = () => {
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Marcar Status como Lido</span>
                 <div className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" checked={readStatus} onChange={e => setReadStatus(e.target.checked)} className="sr-only peer" />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#004a3c]"></div>
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                 </div>
               </label>
 
@@ -559,7 +559,7 @@ const SettingsEvolution: React.FC = () => {
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Sincronizar Histórico Completo</span>
                 <div className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" checked={syncFullHistory} onChange={e => setSyncFullHistory(e.target.checked)} className="sr-only peer" />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#004a3c]"></div>
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                 </div>
               </label>
             </div>
@@ -582,7 +582,7 @@ const SettingsEvolution: React.FC = () => {
               <button
                 onClick={() => handleSetSettings(evolutionInstance, evolutionApiKey)}
                 disabled={isProcessingSettings || !evolutionInstance || !evolutionApiKey}
-                className="px-6 py-2 bg-primary text-white rounded-lg font-bold flex items-center gap-2 hover:bg-[#004a3c] transition-all shadow-md active:scale-95"
+                className="px-6 py-2 bg-primary text-white rounded-lg font-bold flex items-center gap-2 hover:bg-primary-dark transition-all shadow-md active:scale-95"
               >
                 {isProcessingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} Salvar Configurações
               </button>

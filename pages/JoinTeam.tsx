@@ -85,7 +85,7 @@ const JoinTeam: React.FC = () => {
                 value={fullName} 
                 onChange={e => setFullName(e.target.value)} 
                 placeholder="Ex: João Silva"
-                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-[#005C4B] focus:border-transparent outline-none transition-all" 
+                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all" 
               />
             </div>
             <div>
@@ -96,7 +96,7 @@ const JoinTeam: React.FC = () => {
                 value={email} 
                 onChange={e => setEmail(e.target.value)} 
                 placeholder="joao@empresa.com"
-                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-[#005C4B] focus:border-transparent outline-none transition-all" 
+                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all" 
               />
             </div>
             <div>
@@ -107,13 +107,13 @@ const JoinTeam: React.FC = () => {
                 value={password} 
                 onChange={e => setPassword(e.target.value)} 
                 placeholder="••••••••"
-                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-[#005C4B] focus:border-transparent outline-none transition-all" 
+                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all" 
               />
             </div>
             <button 
                 type="submit" 
                 disabled={isLoading} 
-                className="w-full flex justify-center items-center gap-2 py-3.5 px-4 bg-[#005C4B] text-white rounded-lg hover:bg-[#004a3c] font-bold shadow-md transition-all transform active:scale-95 disabled:opacity-70 disabled:scale-100"
+              className="w-full flex justify-center items-center gap-2 py-3.5 px-4 bg-primary text-white rounded-lg hover:bg-primary-dark font-bold shadow-md transition-all transform active:scale-95 disabled:opacity-70 disabled:scale-100"
             >
               {isLoading ? <Loader2 className="animate-spin w-5 h-5" /> : <>Entrar na Equipe <ArrowRight className="w-5 h-5" /></>}
             </button>
