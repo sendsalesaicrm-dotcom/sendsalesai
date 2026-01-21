@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, MoreVertical, Send, Paperclip, Bot, Sparkles, User, Tag, Phone, Edit2, Loader2, MessageSquareOff, Plus, ShieldCheck, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback, useLayoutEffect, useMemo } from 'react';
+import { Search, MoreVertical, Send, Paperclip, Bot, Sparkles, User, Tag, Phone, Edit2, Loader2, MessageSquareOff, Plus, ShieldCheck, RefreshCw, ChevronDown } from 'lucide-react';
+import { format, isSameDay } from 'date-fns';
 import { Conversation, Message, Lead } from '../types';
 import { suggestReply } from '../services/geminiService';
 import { sendMessage } from '../services/sendMessageService';
@@ -8,6 +9,78 @@ import { supabase } from '../services/supabaseClient';
 import NewLeadModal from '../components/NewLeadModal';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+
+const MessageBubble = React.memo(function MessageBubble({ msg }: { msg: Message }) {
+  const isMe = msg.sender_type === 'user';
+  const isAi = msg.is_ai_generated;
+  const isPending = String(msg.id || '').startsWith('temp-');
+
+  const mediaType = (msg.media_type || '').toLowerCase();
+  const mediaUrl = msg.media_url || undefined;
+  const caption = msg.caption || undefined;
+
+  return (
+    <div className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+      <div
+        className={`max-w-[70%] rounded-lg p-3 shadow-sm relative ${
+          isMe
+            ? isAi
+              ? 'bg-accent/10 border border-accent/20 text-gray-800 dark:text-gray-100 rounded-tr-none'
+              : 'bg-[#d9fdd3] dark:bg-primary text-gray-800 dark:text-gray-100 rounded-tr-none'
+            : 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-tl-none'
+        }`}
+      >
+        {isAi && (
+          <div className="flex items-center gap-1 text-xs text-accent font-bold mb-1">
+            <Sparkles className="w-3 h-3" /> Resposta IA
+          </div>
+        )}
+        {mediaUrl && (mediaType === 'image' || mediaType === 'photo') && (
+          <div className="mb-2">
+            <a href={mediaUrl} target="_blank" rel="noreferrer" className="block">
+              <img
+                src={mediaUrl}
+                alt={caption || msg.file_name || 'Imagem'}
+                className="max-h-64 w-auto rounded-md object-contain border border-black/5 dark:border-white/10"
+                loading="lazy"
+              />
+            </a>
+          </div>
+        )}
+
+        {mediaUrl && mediaType === 'video' && (
+          <div className="mb-2">
+            <video
+              src={mediaUrl}
+              controls
+              className="max-h-64 w-full rounded-md border border-black/5 dark:border-white/10"
+            />
+          </div>
+        )}
+
+        {mediaUrl && (mediaType === 'document' || mediaType === 'file') && (
+          <div className="mb-2">
+            <a
+              href={mediaUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 transition-colors"
+            >
+              <span className="text-sm font-semibold">{msg.file_name || 'Documento'}</span>
+              <span className="text-xs text-gray-500 dark:text-gray-300">{msg.mime_type || ''}</span>
+            </a>
+          </div>
+        )}
+
+        <p className="text-sm leading-relaxed whitespace-pre-wrap">{caption || msg.content}</p>
+        <div className="text-[10px] text-gray-400 dark:text-gray-300 text-right mt-1 flex items-center justify-end gap-1">
+          {isPending && <Loader2 className="w-3 h-3 animate-spin" />}
+          {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </div>
+      </div>
+    </div>
+  );
+});
 
 const LiveChat: React.FC = () => {
   const DEFAULT_AVATAR_URL = 'https://ohgcufkcrpehkvxavmhw.supabase.co/storage/v1/object/public/logo/avatar.png';
@@ -30,6 +103,69 @@ const LiveChat: React.FC = () => {
   const [notesDraft, setNotesDraft] = useState('');
   const [isSavingNotes, setIsSavingNotes] = useState(false);
 
+  const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
+  const [attachUrl, setAttachUrl] = useState('');
+  const [attachCaption, setAttachCaption] = useState('');
+  const [attachFileName, setAttachFileName] = useState('');
+  const [attachMimeType, setAttachMimeType] = useState('image/png');
+  const [attachMediaType, setAttachMediaType] = useState<'image' | 'video' | 'document'>('image');
+
+  const guessMimeTypeFromUrl = useCallback((url: string, fallback: string) => {
+    const u = (url || '').split('?')[0].split('#')[0].toLowerCase();
+    if (u.endsWith('.jpg') || u.endsWith('.jpeg')) return 'image/jpeg';
+    if (u.endsWith('.png')) return 'image/png';
+    if (u.endsWith('.webp')) return 'image/webp';
+    if (u.endsWith('.gif')) return 'image/gif';
+    if (u.endsWith('.mp4')) return 'video/mp4';
+    if (u.endsWith('.mov')) return 'video/quicktime';
+    if (u.endsWith('.pdf')) return 'application/pdf';
+    if (u.endsWith('.mp3')) return 'audio/mpeg';
+    if (u.endsWith('.ogg')) return 'audio/ogg';
+    return fallback;
+  }, []);
+
+  const guessFileNameFromUrl = useCallback((url: string) => {
+    try {
+      const noQuery = (url || '').split('?')[0].split('#')[0];
+      const last = noQuery.substring(noQuery.lastIndexOf('/') + 1);
+      return last || '';
+    } catch {
+      return '';
+    }
+  }, []);
+
+  const defaultMimeForType = useCallback((t: 'image' | 'video' | 'document') => {
+    if (t === 'video') return 'video/mp4';
+    if (t === 'document') return 'application/pdf';
+    return 'image/png';
+  }, []);
+
+  useEffect(() => {
+    if (!isAttachModalOpen) return;
+
+    const fallback = defaultMimeForType(attachMediaType);
+    const guessed = guessMimeTypeFromUrl(attachUrl, fallback);
+
+    // Only override if the field is empty or still at the previous default.
+    if (!attachMimeType || attachMimeType === 'image/png' || attachMimeType === 'video/mp4' || attachMimeType === 'application/pdf') {
+      setAttachMimeType(guessed);
+    }
+
+    if (!attachFileName) {
+      const fn = guessFileNameFromUrl(attachUrl);
+      if (fn) setAttachFileName(fn);
+    }
+  }, [
+    attachUrl,
+    attachMediaType,
+    attachMimeType,
+    attachFileName,
+    isAttachModalOpen,
+    defaultMimeForType,
+    guessMimeTypeFromUrl,
+    guessFileNameFromUrl,
+  ]);
+
   const [evolutionUrl, setEvolutionUrl] = useState<string>('');
   const [evolutionApiKey, setEvolutionApiKey] = useState<string>('');
   const [evolutionInstance, setEvolutionInstance] = useState<string>('');
@@ -37,6 +173,27 @@ const LiveChat: React.FC = () => {
   const [isSyncingMessages, setIsSyncingMessages] = useState<boolean>(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef<boolean>(true);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
+    const el = messagesEndRef.current;
+    if (!el) return;
+    el.scrollIntoView({ behavior, block: 'end' });
+  }, []);
+
+  const handleMessagesScroll = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const thresholdPx = 160;
+    const distanceToBottom = container.scrollHeight - (container.scrollTop + container.clientHeight);
+    const nearBottom = distanceToBottom <= thresholdPx;
+    isNearBottomRef.current = nearBottom;
+    setShowScrollToBottom(!nearBottom);
+  }, []);
 
   const ensureAbsoluteUrl = (url: string) => {
     let cleaned = (url || '').trim().replace(/^\/+/, '');
@@ -174,9 +331,32 @@ const LiveChat: React.FC = () => {
         // If message belongs to active chat, append it
         if (activeChatId && newMsg.lead_id === activeChatId) { 
             setMessages(prev => {
-                // Prevent duplicate optimistic updates by checking ID or content matching recently sent
+                // Prevent duplicates by ID
                 if (prev.some(m => m.id === newMsg.id)) return prev;
-                return [...prev, newMsg];
+
+                // Reconcile optimistic message: replace/remove temp message when real one arrives.
+                let next = prev;
+                const isUserMsg = newMsg.sender_type === 'user';
+                if (isUserMsg) {
+                  const newTs = new Date(newMsg.created_at).getTime();
+                  const candidate = prev.find((m) =>
+                    String(m.id).startsWith('temp-') &&
+                    m.sender_type === 'user' &&
+                    m.content === newMsg.content &&
+                    Math.abs(newTs - new Date(m.created_at).getTime()) < 2 * 60 * 1000
+                  );
+                  if (candidate) next = prev.filter((m) => m.id !== candidate.id);
+                }
+
+                // Insert while preserving order (cheap check)
+                if (next.length === 0) return [newMsg];
+                const last = next[next.length - 1];
+                const lastTs = new Date(last.created_at).getTime();
+                const newTs = new Date(newMsg.created_at).getTime();
+                if (Number.isFinite(lastTs) && Number.isFinite(newTs) && newTs < lastTs) {
+                  return [...next, newMsg].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+                }
+                return [...next, newMsg];
             });
         }
         // Update sidebar "last message"
@@ -279,6 +459,10 @@ const LiveChat: React.FC = () => {
         return;
     }
 
+    // When switching chats, default to "follow" the bottom.
+    isNearBottomRef.current = true;
+    setShowScrollToBottom(false);
+
     const fetchChatDetails = async () => {
       setIsLoadingMessages(true);
       try {
@@ -310,10 +494,16 @@ const LiveChat: React.FC = () => {
     fetchChatDetails();
   }, [activeChatId, conversations]);
 
-  // Scroll to bottom
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  // Smart autoscroll: follow bottom only when user is near bottom, or when sending a message.
+  useLayoutEffect(() => {
+    if (messages.length === 0) return;
+    const last = messages[messages.length - 1];
+    const force = last.sender_type === 'user' || String(last.id || '').startsWith('temp-');
+    if (!force && !isNearBottomRef.current) return;
+
+    // "smooth" for user-sent messages; "auto" for bulk loads/inbound.
+    scrollToBottom(force ? 'smooth' : 'auto');
+  }, [messages, scrollToBottom]);
 
   // Keep notes draft in sync with the selected lead (but don't clobber while editing)
   useEffect(() => {
@@ -349,6 +539,11 @@ const LiveChat: React.FC = () => {
 
     setMessages(prev => [...prev, optimisticMessage]);
     setInputMessage('');
+    requestAnimationFrame(() => {
+      isNearBottomRef.current = true;
+      setShowScrollToBottom(false);
+      scrollToBottom('smooth');
+    });
 
     try {
         // CALL EDGE FUNCTION SERVICE
@@ -365,8 +560,7 @@ const LiveChat: React.FC = () => {
         // We rely on the Realtime subscription to bring the 'real' message back.
         // However, to avoid visual duplication if Realtime is slow, we might filter it out 
         // when the real one arrives, or just remove it now assuming success/speed.
-        // For this implementation, we'll remove the optimistic one to let Realtime fill it in.
-        setMessages(prev => prev.filter(m => m.id !== tempId));
+        // Keep optimistic message until realtime arrives; the realtime handler reconciles it.
 
     } catch (err: any) {
         console.error("Error sending message:", err);
@@ -375,6 +569,71 @@ const LiveChat: React.FC = () => {
         setMessages(prev => prev.filter(m => m.id !== tempId));
     } finally {
         setIsSending(false);
+    }
+  };
+
+  const handleSendMedia = async () => {
+    if (!activeChatId) return;
+    if (!currentOrganization) {
+      showToast('Erro: Organização não identificada.', 'error');
+      return;
+    }
+    if (!activeLead?.phone) {
+      showToast('Erro: Lead sem telefone.', 'error');
+      return;
+    }
+    if (!attachUrl.trim()) {
+      showToast('Informe uma URL de mídia.', 'info');
+      return;
+    }
+
+    setIsSending(true);
+
+    const tempId = 'temp-' + Date.now();
+    const optimistic: Message = {
+      id: tempId,
+      lead_id: activeChatId,
+      sender_type: 'user',
+      is_ai_generated: false,
+      content: attachCaption || `[${attachMediaType}]`,
+      created_at: new Date().toISOString(),
+      media_type: attachMediaType,
+      media_url: attachUrl,
+      mime_type: attachMimeType,
+      file_name: attachFileName || null,
+      caption: attachCaption || null,
+    };
+
+    setMessages((prev) => [...prev, optimistic]);
+
+    try {
+      await sendMessage({
+        type: 'media',
+        organizationId: currentOrganization.id,
+        phone: activeLead.phone,
+        media: attachUrl.trim(),
+        mediatype: attachMediaType,
+        mimetype: attachMimeType,
+        caption: attachCaption || undefined,
+        fileName: attachFileName || undefined,
+      });
+
+      // Keep optimistic until realtime arrives; remove after short delay fallback
+      setTimeout(() => {
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      }, 6000);
+    } catch (err: any) {
+      console.error('Error sending media:', err);
+      showToast(`Erro no envio: ${err.message}`, 'error');
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+    } finally {
+      setIsSending(false);
+      setIsAttachModalOpen(false);
+      setAttachUrl('');
+      setAttachCaption('');
+      setAttachFileName('');
+      setAttachMimeType('image/png');
+      setAttachMediaType('image');
     }
   };
 
@@ -535,6 +794,26 @@ const LiveChat: React.FC = () => {
     }
   }, [activeChatId, activeLead?.phone, evolutionUrl, evolutionApiKey, evolutionInstance, showToast]);
 
+  const renderedMessageItems = useMemo(() => {
+    const items: Array<
+      | { type: 'day'; key: string; label: string }
+      | { type: 'message'; key: string; msg: Message }
+    > = [];
+
+    let lastDate: Date | null = null;
+    for (const msg of messages) {
+      const d = new Date(msg.created_at);
+      if (!lastDate || !isSameDay(d, lastDate)) {
+        const dayKey = Number.isNaN(d.getTime()) ? `day-unknown-${items.length}` : `day-${d.toISOString().slice(0, 10)}`;
+        const label = Number.isNaN(d.getTime()) ? '—' : format(d, 'dd/MM/yyyy');
+        items.push({ type: 'day', key: dayKey, label });
+        lastDate = d;
+      }
+      items.push({ type: 'message', key: msg.id, msg });
+    }
+    return items;
+  }, [messages]);
+
   return (
     <div className="flex h-[calc(100vh-4rem)] bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
       
@@ -629,6 +908,97 @@ const LiveChat: React.FC = () => {
       <div className={`flex-1 ${activeChatId ? 'flex' : 'hidden lg:flex'} flex-col bg-[#efeae2] dark:bg-[#0b141a] relative transition-colors`}>
         {activeChatId ? (
           <>
+            {isAttachModalOpen && (
+              <div className="absolute inset-0 z-20 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="w-full max-w-lg bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Enviar mídia</h3>
+                    <button
+                      type="button"
+                      onClick={() => setIsAttachModalOpen(false)}
+                      className="px-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-200"
+                    >
+                      Fechar
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs font-bold text-gray-500 dark:text-gray-300">Tipo</label>
+                      <select
+                        value={attachMediaType}
+                        onChange={(e) => setAttachMediaType(e.target.value as any)}
+                        className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
+                      >
+                        <option value="image">Imagem</option>
+                        <option value="video">Vídeo</option>
+                        <option value="document">Documento</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-gray-500 dark:text-gray-300">URL da mídia</label>
+                      <input
+                        value={attachUrl}
+                        onChange={(e) => setAttachUrl(e.target.value)}
+                        placeholder="https://..."
+                        className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
+                      />
+                      <p className="mt-1 text-xs text-gray-400">(Evolution aceita URL ou base64; aqui estamos usando URL.)</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-bold text-gray-500 dark:text-gray-300">MIME type</label>
+                        <input
+                          value={attachMimeType}
+                          onChange={(e) => setAttachMimeType(e.target.value)}
+                          placeholder="image/png"
+                          className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-gray-500 dark:text-gray-300">Nome do arquivo</label>
+                        <input
+                          value={attachFileName}
+                          onChange={(e) => setAttachFileName(e.target.value)}
+                          placeholder="Imagem.png"
+                          className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-gray-500 dark:text-gray-300">Caption (opcional)</label>
+                      <input
+                        value={attachCaption}
+                        onChange={(e) => setAttachCaption(e.target.value)}
+                        placeholder="Teste de caption"
+                        className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsAttachModalOpen(false)}
+                        className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSendMedia}
+                        disabled={isSending}
+                        className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-dark disabled:opacity-50"
+                      >
+                        {isSending ? 'Enviando...' : 'Enviar'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             {/* Chat Header */}
             <div className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shadow-sm z-10">
                 <button
@@ -681,7 +1051,12 @@ const LiveChat: React.FC = () => {
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4" style={{ backgroundImage: 'radial-gradient(rgba(0,0,0,0.1) 1px, transparent 0)', backgroundSize: '20px 20px' }}>
+            <div
+              ref={messagesContainerRef}
+              onScroll={handleMessagesScroll}
+              className="flex-1 overflow-y-auto p-6 space-y-4 relative"
+              style={{ backgroundImage: 'radial-gradient(rgba(0,0,0,0.1) 1px, transparent 0)', backgroundSize: '20px 20px' }}
+            >
                 {isLoadingMessages ? (
                     <div className="flex items-center justify-center h-full">
                         <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
@@ -692,28 +1067,36 @@ const LiveChat: React.FC = () => {
                          <p className="text-xs">Comece a conversa agora.</p>
                     </div>
                 ) : (
-                   messages.map((msg) => {
-                    const isMe = msg.sender_type === 'user'; // Agent is User
-                    const isAi = msg.is_ai_generated;
-                    return (
-                        <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-[70%] rounded-lg p-3 shadow-sm relative ${
-                            isMe ? (isAi ? 'bg-accent/10 border border-accent/20 text-gray-800 dark:text-gray-100 rounded-tr-none' : 'bg-[#d9fdd3] dark:bg-primary text-gray-800 dark:text-gray-100 rounded-tr-none') : 
-                            'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-tl-none'
-                            }`}>
-                            {isAi && (
-                                <div className="flex items-center gap-1 text-xs text-accent font-bold mb-1">
-                                <Sparkles className="w-3 h-3" /> Resposta IA
-                                </div>
-                            )}
-                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                            <div className="text-[10px] text-gray-400 dark:text-gray-300 text-right mt-1 flex items-center justify-end gap-1">
-                                {new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                            </div>
-                            </div>
+                  renderedMessageItems.map((item) => {
+                    if (item.type === 'day') {
+                      return (
+                        <div key={item.key} className="flex justify-center">
+                          <div className="px-3 py-1 rounded-full text-xs font-medium text-gray-600 dark:text-gray-200 bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 shadow-sm">
+                            {item.label}
+                          </div>
                         </div>
-                    );
-                   })
+                      );
+                    }
+                    return <MessageBubble key={item.key} msg={item.msg} />;
+                  })
+                )}
+
+                {showScrollToBottom && (
+                  <div className="sticky bottom-4 flex justify-end pointer-events-none">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        isNearBottomRef.current = true;
+                        setShowScrollToBottom(false);
+                        scrollToBottom('smooth');
+                      }}
+                      className="pointer-events-auto inline-flex items-center gap-2 px-3 py-2 rounded-full bg-white/90 dark:bg-gray-800/90 border border-gray-200 dark:border-gray-700 shadow-lg text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-800 transition-colors"
+                      title="Ir para o final"
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                      <span className="text-sm font-semibold">Novas mensagens</span>
+                    </button>
+                  </div>
                 )}
                 <div ref={messagesEndRef} />
             </div>
@@ -721,14 +1104,29 @@ const LiveChat: React.FC = () => {
             {/* Input Area */}
             <div className="bg-gray-50 dark:bg-gray-800 p-4 border-t border-gray-200 dark:border-gray-700">
             <div className="flex gap-2 items-end">
-                <button className="p-3 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors">
+                <button
+                  type="button"
+                  onClick={() => setIsAttachModalOpen(true)}
+                  className="p-3 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors"
+                  title="Enviar mídia (URL)"
+                >
                     <Paperclip className="w-5 h-5" />
                 </button>
                 
                 <div className="flex-1 bg-white dark:bg-gray-700 rounded-2xl border border-gray-300 dark:border-gray-600 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all flex flex-col">
                     <textarea
+                    ref={textareaRef}
                     value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
+                    onChange={(e) => {
+                      setInputMessage(e.target.value);
+                      requestAnimationFrame(() => {
+                        const el = textareaRef.current;
+                        if (!el) return;
+                        el.style.height = 'auto';
+                        const next = Math.min(el.scrollHeight, 128);
+                        el.style.height = `${next}px`;
+                      });
+                    }}
                     placeholder="Digite uma mensagem..."
                     className="w-full p-3 bg-transparent border-none resize-none focus:ring-0 max-h-32 text-sm text-gray-800 dark:text-gray-100 placeholder-gray-400"
                     rows={1}

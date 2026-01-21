@@ -37,84 +37,127 @@ serve(async (req) => {
       const supabase = createClient(supabaseUrl, supabaseServiceKey);
       const body = await req.json();
 
-      let phone = "";
-      let name = "";
-      let content = "";
-      let timestamp = new Date().toISOString();
+      const nowIso = new Date().toISOString();
       let metaPhoneNumberId = ""; // Used to identify Org for Meta
+      const provider = body.object === "whatsapp_business_account" ? "meta" : "evolution";
 
-      // --- DETECTION LOGIC ---
+      type ParsedIncoming = {
+        phone: string;
+        name: string;
+        content: string;
+        timestamp: string;
+        external_id: string | null;
+        instanceName?: string;
+      };
 
-      // A. Meta (Official API)
-      if (body.object === "whatsapp_business_account") {
+      const normalizePhone = (raw: string) => String(raw || '').replace(/\D/g, '');
+
+      const getEvolutionExternalId = (raw: any): string | null => {
+        return raw?.id || raw?.messageId || raw?.key?.id || raw?.key?.idMessage || null;
+      };
+
+      const parseMeta = (): ParsedIncoming[] => {
         const entry = body.entry?.[0];
         const changes = entry?.changes?.[0];
         const value = changes?.value;
 
-        // Capture Phone Number ID to identify Organization later
         metaPhoneNumberId = value?.metadata?.phone_number_id;
 
         // Ignore status updates (sent, delivered, read)
-        if (!value?.messages) return new Response("OK", { status: 200 });
+        if (!value?.messages || !Array.isArray(value.messages) || value.messages.length === 0) return [];
 
-        const message = value.messages[0];
         const contact = value.contacts?.[0];
+        const name = contact?.profile?.name;
 
-        phone = message.from; // e.g. "551199999999"
-        name = contact?.profile?.name || phone;
-        content = message.text?.body || "[Mídia/Outro formato]";
-      } 
-      
-      // B. Evolution API (Generic Baileys/Typebot structure)
-      // Usually has 'type', 'event', 'data'
-      else if (body.type === "message" || body.event === "messages.upsert" || (body.data && body.data.key)) {
-         const data = body.data;
-         
-         // Skip messages sent by me (to avoid loop/duplication if we are syncing)
-         if (data.key?.fromMe) {
-             return new Response("OK", { status: 200 });
-         }
+        return value.messages.map((message: any) => {
+          const phone = message.from;
+          const content = message.text?.body || "[Mídia/Outro formato]";
+          const ts = message.timestamp ? new Date(Number(message.timestamp) * 1000).toISOString() : nowIso;
+          const external_id = message.id || null;
+          return {
+            phone: normalizePhone(phone),
+            name: name || normalizePhone(phone),
+            content,
+            timestamp: ts,
+            external_id,
+          };
+        });
+      };
 
-         // Extract Phone
-         const remoteJid = data.key?.remoteJid || ""; // "55119999999@s.whatsapp.net"
-         phone = remoteJid.replace("@s.whatsapp.net", "");
-         
-         // Extract Content
-         const msgContent = data.message;
-         if (!msgContent) return new Response("OK", { status: 200 });
+      const parseEvolution = (): ParsedIncoming[] => {
+        const instanceName = body.instance || body?.data?.instance || body?.data?.instanceName;
+        const event = body.event || body.type;
 
-         content = 
-            msgContent.conversation || 
-            msgContent.extendedTextMessage?.text || 
-            msgContent.imageMessage?.caption ||
-            "[Mensagem Complexa/Mídia]";
-         
-         name = data.pushName || phone;
-      } 
-      else {
-        // Unknown format, log and ignore
-        console.log("Unknown Webhook Format:", JSON.stringify(body).substring(0, 100));
-        return new Response("OK", { status: 200 });
+        // Evolution often sends arrays/batches. Normalize to list of message-like items.
+        const data = body.data;
+        const candidates: any[] = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.messages)
+            ? data.messages
+            : data
+              ? [data]
+              : [];
+
+        // Do not hard-filter by event name: Evolution versions vary and sometimes still include
+        // message payloads under different event types.
+
+        const results: ParsedIncoming[] = [];
+        for (const item of candidates) {
+          try {
+            const key = item?.key || item?.message?.key || item?.data?.key || {};
+            if (key?.fromMe) continue;
+
+            const rawJid = key?.senderPn || key?.remoteJid || item?.remoteJid || '';
+            const jid = String(rawJid);
+            const stripped = jid
+              .replace('@s.whatsapp.net', '')
+              .replace('@c.us', '');
+            const phone = normalizePhone(stripped);
+            if (!phone) continue;
+
+            const msgContent = item?.message || item?.data?.message;
+            if (!msgContent) continue;
+
+            const content =
+              msgContent.conversation ||
+              msgContent.extendedTextMessage?.text ||
+              msgContent.imageMessage?.caption ||
+              msgContent.videoMessage?.caption ||
+              "[Mensagem Complexa/Mídia]";
+            if (!content) continue;
+
+            const name = item?.pushName || item?.data?.pushName || phone;
+            const external_id = getEvolutionExternalId(item);
+            const tsRaw = item?.createdAt || item?.created_at || item?.timestamp || item?.messageTimestamp || item?.message?.messageTimestamp;
+            let timestamp = nowIso;
+            if (typeof tsRaw === 'string') {
+              const d = new Date(tsRaw);
+              if (!Number.isNaN(d.getTime())) timestamp = d.toISOString();
+            } else if (typeof tsRaw === 'number' && Number.isFinite(tsRaw)) {
+              const ms = tsRaw > 10_000_000_000 ? tsRaw : tsRaw * 1000;
+              const d = new Date(ms);
+              if (!Number.isNaN(d.getTime())) timestamp = d.toISOString();
+            }
+
+            results.push({ phone, name, content, timestamp, external_id, instanceName });
+          } catch (e) {
+            console.error('[parseEvolution] item error:', (e as any)?.message || e);
+          }
+        }
+
+        return results;
+      };
+
+      const incoming: ParsedIncoming[] = body.object === "whatsapp_business_account" ? parseMeta() : parseEvolution();
+      if (incoming.length === 0) {
+        // Unknown/ignored format. Always return 200 to prevent provider retries.
+        return new Response("OK", { status: 200, headers: corsHeaders });
       }
-
-      if (!phone || !content) {
-          return new Response("OK - No Content", { status: 200 });
-      }
-
-      phone = String(phone).replace(/\D/g, "");
-      if (!phone) {
-        return new Response("OK - Invalid Phone", { status: 200 });
-      }
-
-      console.log(`Processing message from ${phone}: ${content}`);
 
       // --- DATABASE PERSISTENCE ---
-
-      // 1. Find or Create Lead (per-organization uniqueness)
-      let leadId: string | null = null;
+      // Resolve organization once (Meta uses phone_number_id; Evolution uses instance name)
       let organizationId: string | null = null;
 
-      // Resolve Organization ID first
       if (metaPhoneNumberId) {
         const { data: config } = await supabase
           .from('whatsapp_config')
@@ -124,13 +167,34 @@ serve(async (req) => {
         if (config) organizationId = config.organization_id;
       }
 
-      // Fallback (DEV ONLY - REMOVE IN PROD): pick first org if we couldn't resolve
       if (!organizationId) {
-        const { data: firstOrg } = await supabase.from('organizations').select('id').limit(1).single();
-        organizationId = firstOrg?.id || null;
+        const instanceName = incoming[0]?.instanceName;
+        if (instanceName) {
+          const { data: org } = await supabase
+            .from('organizations')
+            .select('id')
+            .eq('evolution_instance', instanceName)
+            .single();
+          if (org) organizationId = org.id;
+        }
       }
 
-      if (organizationId) {
+      // IMPORTANT: do not fallback to the first org (this causes "lost" messages / wrong routing)
+      if (!organizationId) {
+        console.warn(`Could not resolve organization for provider=${provider}`);
+        return new Response("OK", { status: 200, headers: corsHeaders });
+      }
+
+      for (const msg of incoming) {
+        const phone = msg.phone;
+        const content = msg.content;
+        const name = msg.name;
+        const timestamp = msg.timestamp || nowIso;
+
+        console.log(`Processing message from ${phone}: ${content}`);
+
+        // 1. Find or Create Lead (per-organization uniqueness)
+        let leadId: string | null = null;
         const { data: existingLead } = await supabase
           .from('leads')
           .select('id')
@@ -160,23 +224,34 @@ serve(async (req) => {
 
           if (!createError && newLead) leadId = newLead.id;
         }
-      }
 
-      if (leadId) {
-        await supabase.from("conversations").insert({
+        if (!leadId) continue;
+
+        // 2. Idempotent insert (prevents duplicates + avoids "lost" on retries)
+        const payload: any = {
           lead_id: leadId,
-          content: content,
-          sender_type: "contact", // It's from the customer
-          created_at: timestamp
-        });
-      } else {
-          console.warn(`Could not attribute message from ${phone} to any Organization.`);
+          content,
+          sender_type: 'contact',
+          created_at: timestamp,
+          provider,
+          external_id: msg.external_id,
+        };
+
+        const { error: insErr } = await supabase
+          .from('conversations')
+          .upsert(payload, { onConflict: 'provider,external_id' });
+
+        if (insErr) {
+          // If we don't have external_id, upsert can't dedupe; still log.
+          console.error('Insert conversation error:', insErr);
+        }
       }
 
       return new Response("Event processed", { status: 200, headers: corsHeaders });
 
     } catch (error) {
       console.error("Webhook Error:", error);
+      // Always 200 to avoid provider retries storms; log is the source of truth.
       return new Response("Internal Error", { status: 200, headers: corsHeaders });
     }
   }

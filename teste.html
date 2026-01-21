@@ -2,145 +2,147 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Chat Realtime - Online & Digitando</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <title>Evolution v2 - Teste de Mensagens</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; padding: 20px; background: #1a1a1a; color: #e0e0e0; }
-        #chat-container { max-width: 500px; margin: auto; background: #2d2d2d; padding: 20px; border-radius: 8px; }
-        
-        /* Lista de Online */
-        #online-status { font-size: 12px; margin-bottom: 10px; padding: 8px; background: #121212; border-radius: 4px; color: #4ade80; }
-        
-        #messages { height: 300px; overflow-y: auto; border: 1px solid #444; background: #121212; padding: 10px; margin-bottom: 5px; border-radius: 4px; display: flex; flex-direction: column; }
-        
-        /* Indicador de Digitando */
-        #typing-indicator { height: 20px; font-size: 11px; color: #aaa; margin-bottom: 10px; font-style: italic; }
-        
-        .msg-box { margin-bottom: 8px; padding: 8px 12px; border-radius: 15px; max-width: 80%; font-size: 14px; position: relative; }
-        .mine { align-self: flex-end; background: #0084ff; color: white; }
-        .others { align-self: flex-start; background: #3e3e3e; color: #e0e0e0; }
-        .user-label { font-size: 10px; opacity: 0.7; display: block; }
-        
-        input, button { padding: 10px; border-radius: 4px; border: 1px solid #444; margin-bottom: 5px; }
-        input { background: #333; color: white; width: calc(100% - 22px); }
-        button { width: 100%; background: #3eaf7c; color: white; cursor: pointer; border: none; font-weight: bold; }
+        body { font-family: 'Segoe UI', sans-serif; padding: 20px; background: #121212; color: #e0e0e0; }
+        #chat-container { max-width: 500px; margin: auto; background: #1e1e1e; padding: 20px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .config-section { background: #2d2d2d; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
+        #messages { height: 300px; overflow-y: auto; border: 1px solid #444; background: #0b141a; padding: 10px; margin-bottom: 10px; display: flex; flex-direction: column; }
+        .msg-box { margin-bottom: 8px; padding: 8px 12px; border-radius: 12px; max-width: 80%; font-size: 14px; }
+        .mine { align-self: flex-end; background: #005c4b; }
+        .others { align-self: flex-start; background: #202c33; }
+        .status { font-size: 11px; color: #888; text-align: center; margin-bottom: 5px; }
+        input, button { padding: 10px; border-radius: 4px; border: 1px solid #444; margin-bottom: 8px; width: 100%; box-sizing: border-box; }
+        input { background: #333; color: white; }
+        button { background: #3eaf7c; color: white; border: none; font-weight: bold; cursor: pointer; }
+        .btn-blue { background: #2563eb; }
+        .btn-orange { background: #d97706; }
     </style>
 </head>
 <body>
 
     <div id="chat-container">
-        <div id="online-status">👥 Usuários online: 0</div>
+        <div class="config-section">
+            <h4>⚙️ Configuração</h4>
+            <input type="text" id="baseUrl" placeholder="https://api-exemplo.host">
+            <input type="text" id="instance" placeholder="Nome da Instância">
+            <input type="text" id="apiKey" placeholder="API Key">
+            <input type="text" id="remoteJid" placeholder="Número Destino (ex: 5511...)">
+            <button id="btnAtivar" class="btn-orange">1. Forçar Ativação (Settings)</button>
+            <button id="btnConectar" class="btn-blue">2. Conectar WebSocket</button>
+        </div>
         
+        <div id="status-label" class="status">Desconectado</div>
+        <div id="presence-val" class="status">Status: ---</div>
         <div id="messages"></div>
-        <div id="typing-indicator"></div>
 
-        <input type="text" id="userName" placeholder="Seu Nome">
-        <input type="text" id="messageInput" placeholder="Digite sua mensagem...">
-        <button id="btnEnviar">Enviar Mensagem</button>
+        <input type="text" id="messageInput" placeholder="Mensagem...">
+        <button id="btnEnviar">Enviar</button>
     </div>
 
-    <script type="module">
-        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-        const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+<script>
+    // Carregar dados salvos
+    ['baseUrl', 'instance', 'apiKey', 'remoteJid'].forEach(id => {
+        document.getElementById(id).value = localStorage.getItem(id) || '';
+        document.getElementById(id).oninput = (e) => localStorage.setItem(id, e.target.value);
+    });
 
-        if (!SUPABASE_URL || !SUPABASE_KEY) {
-            throw new Error('Credenciais do Supabase não encontradas. Verifique VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no .env e rode via Vite (npm run dev).');
-        }
-
-        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    async function apiRequest(endpoint, body) {
+        const baseUrl = document.getElementById('baseUrl').value.replace(/\/$/, "");
+        const instance = document.getElementById('instance').value;
+        const apiKey = document.getElementById('apiKey').value;
         
-        const messagesDiv = document.getElementById('messages');
-        const onlineStatusDiv = document.getElementById('online-status');
-        const typingDiv = document.getElementById('typing-indicator');
-        const messageInput = document.getElementById('messageInput');
-        const userNameInput = document.getElementById('userName');
+        // TENTATIVA 1: Tenta o padrão /endpoint/instancia
+        const url = `${baseUrl}/${endpoint}/${instance}`;
+        
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+                body: JSON.stringify(body)
+            });
+            const data = await res.json();
+            console.log(`Resposta de ${endpoint}:`, data);
+            return { ok: res.ok, data };
+        } catch (e) {
+            return { ok: false, error: e.message };
+        }
+    }
 
-        // Gerar um ID único para esta sessão para não confundir o "digitando" comigo mesmo
-        const myId = Math.random().toString(36).substring(7);
-
-        const canalChat = supabaseClient.channel('chat-teste', {
-            config: { 
-                broadcast: { self: false }, // Não quero receber meus próprios broadcasts de digitação
-                presence: { key: myId } 
+    // 1. Forçar Settings (Removi o prefixo /instance/ da URL)
+    document.getElementById('btnAtivar').onclick = async () => {
+        const settings = {
+            websocket: {
+                enabled: true,
+                events: ["MESSAGES_UPSERT", "PRESENCE_UPDATE"]
             }
-        });
-
-        // --- 1. LÓGICA DE PRESENÇA (ONLINE) ---
-        canalChat
-            .on('presence', { event: 'sync' }, () => {
-                const state = canalChat.presenceState();
-                const usersOnline = Object.values(state).map(presence => presence[0].user || 'Anônimo');
-                onlineStatusDiv.innerText = `👥 Online agora (${usersOnline.length}): ${usersOnline.join(', ')}`;
-            })
-            // --- 2. LÓGICA DE DIGITANDO (BROADCAST) ---
-            .on('broadcast', { event: 'typing' }, (payload) => {
-                const { nome, isTyping } = payload.payload;
-                if (isTyping) {
-                    typingDiv.innerText = `${nome} está digitando...`;
-                } else {
-                    typingDiv.innerText = '';
-                }
-            })
-            // --- 3. LÓGICA DE MENSAGENS ---
-            .on('broadcast', { event: 'nova-mensagem' }, (payload) => {
-                renderMessage(payload.payload.nome, payload.payload.texto, false);
-            })
-            .subscribe(async (status) => {
-                if (status === 'SUBSCRIBED') {
-                    // Quando conectar, começa a rastrear minha presença
-                    const nome = userNameInput.value || 'Anônimo';
-                    await canalChat.track({ user: nome, online_at: new Date().toISOString() });
-                }
-            });
-
-        // --- INTERAÇÕES ---
-
-        // Avisar que estou digitando
-        let typingTimeout;
-        messageInput.addEventListener('input', () => {
-            const nome = userNameInput.value || 'Anônimo';
-            
-            // Envia o sinal de que está digitando
-            canalChat.send({ type: 'broadcast', event: 'typing', payload: { nome, isTyping: true } });
-
-            // Limpa o aviso após 2 segundos sem digitar
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => {
-                canalChat.send({ type: 'broadcast', event: 'typing', payload: { nome, isTyping: false } });
-            }, 2000);
-        });
-
-        function renderMessage(nome, texto, isMine) {
-            const div = document.createElement('div');
-            div.className = `msg-box ${isMine ? 'mine' : 'others'}`;
-            div.innerHTML = `<span class="user-label">${nome}</span> ${texto}`;
-            messagesDiv.appendChild(div);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
-
-        async function enviar() {
-            const nome = userNameInput.value || 'Anônimo';
-            const texto = messageInput.value;
-            if (!texto) return;
-
-            await canalChat.send({
-                type: 'broadcast',
-                event: 'nova-mensagem',
-                payload: { nome, texto }
-            });
-
-            renderMessage(nome, texto, true);
-            messageInput.value = '';
-            // Força sumir o "digitando" ao enviar
-            canalChat.send({ type: 'broadcast', event: 'typing', payload: { nome, isTyping: false } });
-        }
-
-        document.getElementById('btnEnviar').onclick = enviar;
-        
-        // Atualiza o nome na presença quando o usuário mudar o campo de nome
-        userNameInput.onchange = () => {
-            canalChat.track({ user: userNameInput.value, online_at: new Date().toISOString() });
         };
-    </script>
+        const res = await apiRequest('settings/set', settings);
+        alert(res.ok ? "Configurações Ativadas!" : "Erro 404: Tentei /settings/set/");
+    };
+
+    // 2. WebSocket v2 para Eventos
+    document.getElementById('btnConectar').onclick = () => {
+        const baseUrl = document.getElementById('baseUrl').value.replace(/\/$/, "").replace(/^https?/, "wss");
+        const instance = document.getElementById('instance').value;
+        const apiKey = document.getElementById('apiKey').value;
+
+        // Na v2, para escutar eventos, usamos apenas /instance/NOME
+        const wsUrl = `${baseUrl}/instance/${instance}?apikey=${apiKey}`;
+        console.log("Tentando WebSocket em:", wsUrl);
+        
+        const socket = new WebSocket(wsUrl);
+
+        socket.onopen = () => {
+            document.getElementById('status-label').innerText = "✅ WebSocket Conectado";
+            document.getElementById('status-label').style.color = "#3eaf7c";
+        };
+
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            console.log("Novo Evento:", data);
+
+            if (data.event === "messages.upsert") {
+                const msg = data.data;
+                if (!msg.key.fromMe) {
+                    const texto = msg.message?.conversation || msg.message?.extendedTextMessage?.text;
+                    if (texto) renderMsg(texto, false);
+                }
+            }
+            
+            if (data.event === "presence.update") {
+                const p = data.data;
+                if (p.id.includes(document.getElementById('remoteJid').value)) {
+                    const s = p.presences[p.id]?.lastKnownPresence;
+                    document.getElementById('presence-val').innerText = `Status: ${s || '---'}`;
+                }
+            }
+        };
+
+        socket.onclose = () => {
+            document.getElementById('status-label').innerText = "❌ WebSocket Fechado";
+            document.getElementById('status-label').style.color = "#ef4444";
+        };
+    };
+
+    document.getElementById('btnEnviar').onclick = async () => {
+        const num = document.getElementById('remoteJid').value;
+        const txt = document.getElementById('messageInput').value;
+        const res = await apiRequest('message/sendText', { number: num, text: txt });
+        if (res.ok) {
+            renderMsg(txt, true);
+            document.getElementById('messageInput').value = '';
+        }
+    };
+
+    function renderMsg(t, mine) {
+        const div = document.createElement('div');
+        div.className = `msg-box ${mine ? 'mine' : 'others'}`;
+        div.innerText = t;
+        const box = document.getElementById('messages');
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+    }
+</script>
 </body>
 </html>

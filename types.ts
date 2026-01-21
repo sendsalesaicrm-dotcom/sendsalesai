@@ -71,6 +71,13 @@ export interface Message {
   is_ai_generated: boolean;
   content: string;
   created_at: string;
+
+  // Optional media payload (Evolution sendMedia / future inbound media)
+  media_type?: 'image' | 'video' | 'document' | 'audio' | string;
+  media_url?: string | null;
+  mime_type?: string | null;
+  file_name?: string | null;
+  caption?: string | null;
 }
 
 export interface Conversation {
