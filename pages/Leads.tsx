@@ -3,6 +3,7 @@ import { Lead } from '../types';
 import { STATUS_MAP, STATUS_COLORS } from '../constants';
 import { Search, Filter, MoreVertical, Download, Loader2, Inbox, Plus, Trash2, Eye, LayoutGrid, List, Calendar, Copy, X } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
+import { fetchProfilePictureUrl, toWhatsAppRemoteJid } from '../services/evolutionProfileService';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import NewLeadModal from '../components/NewLeadModal';
@@ -171,6 +172,10 @@ const Leads: React.FC = () => {
   const { showToast } = useToast();
   const menuRef = useRef<HTMLDivElement>(null);
 
+  const [evolutionConfig, setEvolutionConfig] = useState<{ url: string; apiKey: string; instance: string } | null>(null);
+  const avatarFetchInFlightRef = useRef<Set<string>>(new Set());
+  const avatarFetchedRef = useRef<Set<string>>(new Set());
+
   const formatLeadDateTime = (iso?: string | null) => {
     if (!iso) return '-';
     const d = new Date(iso);
@@ -302,6 +307,98 @@ const Leads: React.FC = () => {
         setIsLoading(false);
     }
   }, [currentOrganization]);
+
+  // Load Evolution config (for profile pictures)
+  useEffect(() => {
+    if (!currentOrganization?.id) {
+      setEvolutionConfig(null);
+      return;
+    }
+
+    let isCancelled = false;
+    const load = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('organizations')
+          .select('evolution_url, evolution_api_key, evolution_instance')
+          .eq('id', currentOrganization.id)
+          .single();
+
+        if (error) throw error;
+
+        const url = String((data as any)?.evolution_url || '').trim();
+        const apiKey = String((data as any)?.evolution_api_key || '').trim();
+        const instance = String((data as any)?.evolution_instance || '').trim();
+
+        if (!isCancelled && url && apiKey && instance) {
+          setEvolutionConfig({ url, apiKey, instance });
+        } else if (!isCancelled) {
+          setEvolutionConfig(null);
+        }
+      } catch {
+        if (!isCancelled) setEvolutionConfig(null);
+      }
+    };
+
+    load();
+    return () => {
+      isCancelled = true;
+    };
+  }, [currentOrganization?.id]);
+
+  // Background-fetch missing avatars from Evolution
+  useEffect(() => {
+    if (!currentOrganization) return;
+    if (!evolutionConfig?.url || !evolutionConfig?.apiKey || !evolutionConfig?.instance) return;
+    if (!leads.length) return;
+
+    const candidates = leads
+      .filter((l) => l && l.id)
+      .filter((l) => {
+        if (!l.phone) return false;
+        if (l.avatar_url && String(l.avatar_url).trim()) return false;
+        if (avatarFetchedRef.current.has(l.id)) return false;
+        if (avatarFetchInFlightRef.current.has(l.id)) return false;
+        return true;
+      })
+      .slice(0, 30);
+
+    if (!candidates.length) return;
+
+    for (const lead of candidates) {
+      const remoteJid = toWhatsAppRemoteJid(lead.phone);
+      if (!remoteJid) continue;
+
+      avatarFetchInFlightRef.current.add(lead.id);
+      fetchProfilePictureUrl({
+        baseUrl: evolutionConfig.url,
+        apiKey: evolutionConfig.apiKey,
+        instance: evolutionConfig.instance,
+        remoteJid,
+      })
+        .then(async (url) => {
+          avatarFetchedRef.current.add(lead.id);
+          if (!url) return;
+
+          setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, avatar_url: url } : l)));
+          setActiveLead((prev) => (prev?.id === lead.id ? { ...prev, avatar_url: url } : prev));
+          setDetailsModalLead((prev) => (prev?.id === lead.id ? { ...prev, avatar_url: url } : prev));
+          setNotesModalLead((prev) => (prev?.id === lead.id ? { ...prev, avatar_url: url } : prev));
+
+          await supabase
+            .from('leads')
+            .update({ avatar_url: url })
+            .eq('id', lead.id)
+            .eq('organization_id', currentOrganization.id);
+        })
+        .catch(() => {
+          avatarFetchedRef.current.add(lead.id);
+        })
+        .finally(() => {
+          avatarFetchInFlightRef.current.delete(lead.id);
+        });
+    }
+  }, [currentOrganization, evolutionConfig, leads]);
 
   useEffect(() => {
     fetchLeads();

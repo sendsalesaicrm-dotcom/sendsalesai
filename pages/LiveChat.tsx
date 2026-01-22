@@ -5,6 +5,7 @@ import { Conversation, Message, Lead } from '../types';
 import { suggestReply } from '../services/geminiService';
 import { sendMessage } from '../services/sendMessageService';
 import { getBase64FromMediaMessage } from '../services/evolutionMediaService';
+import { fetchProfilePictureUrl, toWhatsAppRemoteJid } from '../services/evolutionProfileService';
 import { STATUS_MAP } from '../constants';
 import { supabase } from '../services/supabaseClient';
 import NewLeadModal from '../components/NewLeadModal';
@@ -251,6 +252,9 @@ const LiveChat: React.FC = () => {
   const messagesRefreshInFlightRef = useRef<boolean>(false);
 
   const mediaResolveStateRef = useRef<Map<string, 'pending' | 'ok' | 'error'>>(new Map());
+
+  const avatarFetchInFlightRef = useRef<Set<string>>(new Set());
+  const avatarFetchedRef = useRef<Set<string>>(new Set());
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -394,6 +398,66 @@ const LiveChat: React.FC = () => {
       isCancelled = true;
     };
   }, [currentOrganization?.id]);
+
+  // Fetch missing lead avatars from Evolution (best effort) and persist to DB.
+  useEffect(() => {
+    if (!currentOrganization) return;
+    if (!evolutionUrl || !evolutionApiKey || !evolutionInstance) return;
+    if (!conversations.length) return;
+
+    const candidates = conversations
+      .map((c) => c.lead)
+      .filter((l): l is Lead => Boolean(l && l.id))
+      .filter((l) => {
+        if (!l.phone) return false;
+        if (l.avatar_url && String(l.avatar_url).trim()) return false;
+        if (avatarFetchedRef.current.has(l.id)) return false;
+        if (avatarFetchInFlightRef.current.has(l.id)) return false;
+        return true;
+      })
+      .slice(0, 20);
+
+    if (candidates.length === 0) return;
+
+    for (const lead of candidates) {
+      const remoteJid = toWhatsAppRemoteJid(lead.phone);
+      if (!remoteJid) continue;
+
+      avatarFetchInFlightRef.current.add(lead.id);
+      fetchProfilePictureUrl({
+        baseUrl: evolutionUrl,
+        apiKey: evolutionApiKey,
+        instance: evolutionInstance,
+        remoteJid,
+      })
+        .then(async (url) => {
+          avatarFetchedRef.current.add(lead.id);
+          if (!url) return;
+
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === lead.id
+                ? { ...c, lead: { ...(c.lead as any), avatar_url: url } }
+                : c
+            )
+          );
+          setActiveLead((prev) => (prev?.id === lead.id ? { ...prev, avatar_url: url } : prev));
+
+          // Persist best-effort. Ignore errors to avoid breaking UI.
+          await supabase
+            .from('leads')
+            .update({ avatar_url: url })
+            .eq('id', lead.id)
+            .eq('organization_id', currentOrganization.id);
+        })
+        .catch(() => {
+          avatarFetchedRef.current.add(lead.id);
+        })
+        .finally(() => {
+          avatarFetchInFlightRef.current.delete(lead.id);
+        });
+    }
+  }, [conversations, currentOrganization, evolutionApiKey, evolutionInstance, evolutionUrl]);
 
   // 1. Fetch Conversations (Leads)
   const fetchConversations = useCallback(async () => {
@@ -1156,7 +1220,15 @@ const LiveChat: React.FC = () => {
                   >
                     <div className="flex items-center gap-3">
                       <div className="relative">
-                        <img src={lead.avatar_url || DEFAULT_AVATAR_URL} alt={lead.name} className="w-10 h-10 rounded-full object-cover" />
+                        <img
+                          src={lead.avatar_url || DEFAULT_AVATAR_URL}
+                          onError={(e) => {
+                            const img = e.currentTarget;
+                            if (img.src !== DEFAULT_AVATAR_URL) img.src = DEFAULT_AVATAR_URL;
+                          }}
+                          alt={lead.name}
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start mb-1">
@@ -1292,7 +1364,15 @@ const LiveChat: React.FC = () => {
                 </button>
                 {activeLead ? (
                     <div className="flex items-center gap-3">
-                        <img src={activeLead.avatar_url || DEFAULT_AVATAR_URL} alt={activeLead.name} className="w-10 h-10 rounded-full object-cover" />
+                        <img
+                          src={activeLead.avatar_url || DEFAULT_AVATAR_URL}
+                          onError={(e) => {
+                            const img = e.currentTarget;
+                            if (img.src !== DEFAULT_AVATAR_URL) img.src = DEFAULT_AVATAR_URL;
+                          }}
+                          alt={activeLead.name}
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
                         <div>
                             <h3 className="font-bold text-gray-800 dark:text-gray-100">{activeLead.name || activeLead.phone}</h3>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -1445,7 +1525,15 @@ const LiveChat: React.FC = () => {
         {activeLead ? (
           <div className="p-6 space-y-6">
             <div className="text-center">
-              <img src={activeLead.avatar_url || DEFAULT_AVATAR_URL} alt={activeLead.name} className="w-24 h-24 rounded-full mx-auto object-cover mb-3 border-4 border-gray-100 dark:border-gray-700" />
+              <img
+                src={activeLead.avatar_url || DEFAULT_AVATAR_URL}
+                onError={(e) => {
+                  const img = e.currentTarget;
+                  if (img.src !== DEFAULT_AVATAR_URL) img.src = DEFAULT_AVATAR_URL;
+                }}
+                alt={activeLead.name}
+                className="w-24 h-24 rounded-full mx-auto object-cover mb-3 border-4 border-gray-100 dark:border-gray-700"
+              />
               <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">{activeLead.name || activeLead.phone}</h2>
               <p className="text-gray-500 dark:text-gray-400 text-sm flex items-center justify-center gap-1 mt-1">
                 <Phone className="w-3 h-3" /> {activeLead.phone}
