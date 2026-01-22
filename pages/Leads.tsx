@@ -28,6 +28,70 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+type BrazilRegion = 'Norte' | 'Nordeste' | 'Centro-Oeste' | 'Sudeste' | 'Sul';
+type LeadsSortMode = 'recent' | 'name_asc' | 'name_desc';
+
+const BRAZIL_REGION_OPTIONS: BrazilRegion[] = ['Norte', 'Nordeste', 'Centro-Oeste', 'Sudeste', 'Sul'];
+
+const BRAZIL_DDD_TO_REGION: Record<string, BrazilRegion> = {
+  // Sudeste
+  '11': 'Sudeste', '12': 'Sudeste', '13': 'Sudeste', '14': 'Sudeste', '15': 'Sudeste', '16': 'Sudeste', '17': 'Sudeste', '18': 'Sudeste', '19': 'Sudeste',
+  '21': 'Sudeste', '22': 'Sudeste', '24': 'Sudeste',
+  '27': 'Sudeste', '28': 'Sudeste',
+  '31': 'Sudeste', '32': 'Sudeste', '33': 'Sudeste', '34': 'Sudeste', '35': 'Sudeste', '37': 'Sudeste', '38': 'Sudeste',
+
+  // Sul
+  '41': 'Sul', '42': 'Sul', '43': 'Sul', '44': 'Sul', '45': 'Sul', '46': 'Sul',
+  '47': 'Sul', '48': 'Sul', '49': 'Sul',
+  '51': 'Sul', '53': 'Sul', '54': 'Sul', '55': 'Sul',
+
+  // Centro-Oeste
+  '61': 'Centro-Oeste',
+  '62': 'Centro-Oeste', '64': 'Centro-Oeste',
+  '65': 'Centro-Oeste', '66': 'Centro-Oeste',
+  '67': 'Centro-Oeste',
+
+  // Norte
+  '68': 'Norte',
+  '69': 'Norte',
+  '63': 'Norte',
+  '92': 'Norte', '97': 'Norte',
+  '95': 'Norte',
+  '96': 'Norte',
+  '91': 'Norte', '93': 'Norte', '94': 'Norte',
+
+  // Nordeste
+  '71': 'Nordeste', '73': 'Nordeste', '74': 'Nordeste', '75': 'Nordeste', '77': 'Nordeste',
+  '79': 'Nordeste',
+  '82': 'Nordeste',
+  '81': 'Nordeste', '87': 'Nordeste',
+  '83': 'Nordeste',
+  '84': 'Nordeste',
+  '85': 'Nordeste', '88': 'Nordeste',
+  '86': 'Nordeste', '89': 'Nordeste',
+  '98': 'Nordeste', '99': 'Nordeste',
+};
+
+const extractBrazilDdd = (phone?: string | null): string | null => {
+  if (!phone) return null;
+  const digits = String(phone).replace(/\D/g, '');
+  if (!digits) return null;
+
+  // Common formats:
+  // - 55DDXXXXXXXXX (country + ddd + number)
+  // - DDXXXXXXXXX (ddd + number)
+  const normalized = digits.startsWith('55') && digits.length >= 12 ? digits.slice(2) : digits;
+  if (normalized.length < 10) return null;
+  const ddd = normalized.slice(0, 2);
+  return /^\d{2}$/.test(ddd) ? ddd : null;
+};
+
+const getBrazilRegionFromPhone = (phone?: string | null): BrazilRegion | null => {
+  const ddd = extractBrazilDdd(phone);
+  if (!ddd) return null;
+  return BRAZIL_DDD_TO_REGION[ddd] || null;
+};
+
 const formatKanbanEntryDate = (iso?: string) => {
   if (!iso) return null;
   const date = new Date(iso);
@@ -241,9 +305,15 @@ const Leads: React.FC = () => {
   const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [regionFilter, setRegionFilter] = useState<BrazilRegion | 'Todas'>('Todas');
+  const [sortMode, setSortMode] = useState<LeadsSortMode>('recent');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const { currentOrganization } = useAuth();
   const { showToast } = useToast();
   const menuRef = useRef<HTMLDivElement>(null);
+  const filterRef = useRef<HTMLDivElement>(null);
+  const filterButtonRef = useRef<HTMLButtonElement>(null);
 
   const [evolutionConfig, setEvolutionConfig] = useState<{ url: string; apiKey: string; instance: string } | null>(null);
   const avatarFetchInFlightRef = useRef<Set<string>>(new Set());
@@ -267,13 +337,46 @@ const Leads: React.FC = () => {
       Object.keys(STATUS_MAP).map(status => [status, [] as Lead[]])
     ) as Record<string, Lead[]>;
 
-    leads.forEach(lead => {
+    const q = searchQuery.trim().toLowerCase();
+    const filtered = leads
+      .filter((lead) => {
+        if (!q) return true;
+        const inName = (lead.name || '').toLowerCase().includes(q);
+        const inPhone = (lead.phone || '').toLowerCase().includes(q);
+        const inTags = (lead.tags || []).some((t) => String(t).toLowerCase().includes(q));
+        return inName || inPhone || inTags;
+      })
+      .filter((lead) => {
+        if (regionFilter === 'Todas') return true;
+        const region = getBrazilRegionFromPhone(lead.phone);
+        return region === regionFilter;
+      })
+      .sort((a, b) => {
+        if (sortMode === 'name_asc') {
+          return (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' });
+        }
+        if (sortMode === 'name_desc') {
+          return (b.name || '').localeCompare(a.name || '', 'pt-BR', { sensitivity: 'base' });
+        }
+        // recent
+        const aTime = new Date((a as any).created_at || 0).getTime();
+        const bTime = new Date((b as any).created_at || 0).getTime();
+        return bTime - aTime;
+      });
+
+    filtered.forEach(lead => {
       if (grouped[lead.status]) {
         grouped[lead.status].push(lead);
       }
     });
     return grouped;
-  }, [leads]);
+  }, [leads, regionFilter, searchQuery, sortMode]);
+
+  const visibleLeads = useMemo(() => {
+    const flattened = Object.values(leadsByStatus).flat();
+    // leadsByStatus already applies filtering + sorting; keep a stable list view from it.
+    return flattened;
+  }, [leadsByStatus]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -526,6 +629,19 @@ const Leads: React.FC = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Close filter popover when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!isFilterOpen) return;
+      const target = event.target as Node;
+      if (filterRef.current && filterRef.current.contains(target)) return;
+      if (filterButtonRef.current && filterButtonRef.current.contains(target)) return;
+      setIsFilterOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isFilterOpen]);
 
   const handleDeleteLead = async (id: string) => {
     // Note: confirm() removed to avoid sandbox environment errors
@@ -806,13 +922,115 @@ const Leads: React.FC = () => {
              <input 
                type="text" 
                placeholder="Buscar por nome, telefone ou tag..." 
+               value={searchQuery}
+               onChange={(e) => setSearchQuery(e.target.value)}
                className="w-full pl-9 pr-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-primary focus:border-primary text-gray-700 dark:text-gray-200 placeholder-gray-400"
              />
            </div>
            <div className="flex gap-2">
-             <button className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
-               <Filter className="w-4 h-4" /> Filtrar
-             </button>
+             <div className="relative">
+               <button
+                 ref={filterButtonRef}
+                 type="button"
+                 onClick={() => setIsFilterOpen((v) => !v)}
+                 className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600"
+               >
+                 <Filter className="w-4 h-4" />
+                 Filtrar
+                 {(regionFilter !== 'Todas' || sortMode !== 'recent') && (
+                   <span className="ml-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-200">
+                     {regionFilter !== 'Todas' ? regionFilter : sortMode === 'name_asc' ? 'A–Z' : 'Z–A'}
+                   </span>
+                 )}
+               </button>
+
+               {isFilterOpen && (
+                 <div
+                   ref={filterRef}
+                   className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 p-3"
+                 >
+                   <div className="flex items-center justify-between">
+                     <div className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Filtros</div>
+                     <button
+                       type="button"
+                       onClick={() => setIsFilterOpen(false)}
+                       className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-300"
+                       aria-label="Fechar filtros"
+                     >
+                       <X className="w-4 h-4" />
+                     </button>
+                   </div>
+
+                   <div className="mt-3">
+                     <div className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">Região (DDD)</div>
+                     <div className="grid grid-cols-2 gap-2">
+                       <button
+                         type="button"
+                         onClick={() => setRegionFilter('Todas')}
+                         className={`px-3 py-2 rounded-lg border text-sm text-left ${regionFilter === 'Todas' ? 'border-primary bg-primary/10 text-primary' : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                       >
+                         Todas
+                       </button>
+                       {BRAZIL_REGION_OPTIONS.map((r) => (
+                         <button
+                           key={r}
+                           type="button"
+                           onClick={() => setRegionFilter(r)}
+                           className={`px-3 py-2 rounded-lg border text-sm text-left ${regionFilter === r ? 'border-primary bg-primary/10 text-primary' : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                         >
+                           {r}
+                         </button>
+                       ))}
+                     </div>
+                   </div>
+
+                   <div className="mt-4">
+                     <div className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">Ordenar</div>
+                     <div className="grid grid-cols-3 gap-2">
+                       <button
+                         type="button"
+                         onClick={() => setSortMode('recent')}
+                         className={`px-3 py-2 rounded-lg border text-sm ${sortMode === 'recent' ? 'border-primary bg-primary/10 text-primary' : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                       >
+                         Recentes
+                       </button>
+                       <button
+                         type="button"
+                         onClick={() => setSortMode('name_asc')}
+                         className={`px-3 py-2 rounded-lg border text-sm ${sortMode === 'name_asc' ? 'border-primary bg-primary/10 text-primary' : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                       >
+                         A–Z
+                       </button>
+                       <button
+                         type="button"
+                         onClick={() => setSortMode('name_desc')}
+                         className={`px-3 py-2 rounded-lg border text-sm ${sortMode === 'name_desc' ? 'border-primary bg-primary/10 text-primary' : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                       >
+                         Z–A
+                       </button>
+                     </div>
+                   </div>
+
+                   <div className="mt-4 flex items-center justify-between gap-2">
+                     <button
+                       type="button"
+                       onClick={() => {
+                         setRegionFilter('Todas');
+                         setSortMode('recent');
+                         setSearchQuery('');
+                         setIsFilterOpen(false);
+                       }}
+                       className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                     >
+                       Limpar
+                     </button>
+                     <div className="text-xs text-gray-500 dark:text-gray-400">
+                       {visibleLeads.length} lead(s)
+                     </div>
+                   </div>
+                 </div>
+               )}
+             </div>
            </div>
         </div>
 
@@ -837,7 +1055,7 @@ const Leads: React.FC = () => {
                           </div>
                       </td>
                   </tr>
-              ) : leads.length === 0 ? (
+                ) : visibleLeads.length === 0 ? (
                   <tr>
                       <td colSpan={5} className="px-6 py-12 text-center">
                           <div className="flex flex-col justify-center items-center gap-2 text-gray-400 dark:text-gray-500">
@@ -847,7 +1065,7 @@ const Leads: React.FC = () => {
                       </td>
                   </tr>
               ) : (
-                  leads.map((lead) => (
+                  visibleLeads.map((lead) => (
                     <tr key={lead.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -931,14 +1149,28 @@ const Leads: React.FC = () => {
         
         {/* Pagination */}
         <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center text-sm text-gray-500 dark:text-gray-400">
-           <span>Mostrando {leads.length} registros</span>
+           <span>Mostrando {visibleLeads.length} registros</span>
            <div className="flex gap-2">
              <button className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50" disabled>Anterior</button>
-             <button className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700" disabled={leads.length === 0}>Próximo</button>
+             <button className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700" disabled={visibleLeads.length === 0}>Próximo</button>
            </div>
         </div>
         </div>
       ) : (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
+            <div className="relative w-full max-w-md">
+              <Search className="absolute left-3 top-2.5 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Buscar por nome, telefone ou tag..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-primary focus:border-primary text-gray-700 dark:text-gray-200 placeholder-gray-400"
+              />
+            </div>
+          </div>
+
         <DndContext
           sensors={sensors}
           collisionDetection={pointerWithin}
@@ -984,6 +1216,7 @@ const Leads: React.FC = () => {
             ) : null}
           </DragOverlay>
         </DndContext>
+        </div>
       )}
     </div>
   );
