@@ -49,7 +49,15 @@ const formatKanbanEntryDate = (iso?: string) => {
 };
 
 // Kanban Lead Card Component
-const LeadCard: React.FC<{ lead: Lead; onOpenNotes?: (lead: Lead) => void }> = ({ lead, onOpenNotes }) => {
+const LeadCard: React.FC<{
+  lead: Lead;
+  onOpenNotes?: (lead: Lead) => void;
+  activeMenuId?: string | null;
+  setActiveMenuId?: (id: string | null) => void;
+  menuRef?: React.RefObject<HTMLDivElement>;
+  onViewDetails?: (lead: Lead) => void;
+  onDeleteLead?: (leadId: string) => void;
+}> = ({ lead, onOpenNotes, activeMenuId, setActiveMenuId, menuRef, onViewDetails, onDeleteLead }) => {
   const DEFAULT_AVATAR_URL = 'https://ohgcufkcrpehkvxavmhw.supabase.co/storage/v1/object/public/logo/avatar.png';
   const {
     attributes,
@@ -75,43 +83,90 @@ const LeadCard: React.FC<{ lead: Lead; onOpenNotes?: (lead: Lead) => void }> = (
       {...listeners}
       className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 touch-none"
     >
-      <div className="flex items-center gap-3">
-        <img
-          src={lead.avatar_url || DEFAULT_AVATAR_URL}
-          onError={(e) => {
-            const img = e.currentTarget;
-            if (img.src !== DEFAULT_AVATAR_URL) img.src = DEFAULT_AVATAR_URL;
-          }}
-          alt={lead.name}
-          className="w-10 h-10 rounded-full object-cover"
-        />
-        <div>
-          <div className="font-bold text-sm text-gray-900 dark:text-gray-100">{lead.name}</div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">{lead.phone}</div>
-          <div className="mt-2 flex flex-col items-start gap-2">
-            {(() => {
-              const label = formatKanbanEntryDate(lead.status_changed_at || lead.created_at);
-              if (!label) return null;
-              return (
-                <div className="inline-flex items-center gap-2 px-2 py-1 text-[10px] font-semibold rounded border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-200">
-                  <Calendar className="w-3 h-3" />
-                  <span>{label}</span>
-                </div>
-              );
-            })()}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <img
+            src={lead.avatar_url || DEFAULT_AVATAR_URL}
+            onError={(e) => {
+              const img = e.currentTarget;
+              if (img.src !== DEFAULT_AVATAR_URL) img.src = DEFAULT_AVATAR_URL;
+            }}
+            alt={lead.name}
+            className="w-10 h-10 rounded-full object-cover shrink-0"
+          />
+          <div className="min-w-0">
+            <div className="font-bold text-sm text-gray-900 dark:text-gray-100 truncate">{lead.name}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{lead.phone}</div>
+            <div className="mt-2 flex flex-col items-start gap-2">
+              {(() => {
+                const label = formatKanbanEntryDate(lead.status_changed_at || lead.created_at);
+                if (!label) return null;
+                return (
+                  <div className="inline-flex items-center gap-2 px-2 py-1 text-[10px] font-semibold rounded border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-200">
+                    <Calendar className="w-3 h-3" />
+                    <span>{label}</span>
+                  </div>
+                );
+              })()}
 
-            <button
-              type="button"
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenNotes?.(lead);
-              }}
-              className="inline-flex items-center px-2 py-1 text-[10px] font-semibold rounded border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600"
-            >
-              Anotações
-            </button>
+              <button
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenNotes?.(lead);
+                }}
+                className="inline-flex items-center px-2 py-1 text-[10px] font-semibold rounded border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600"
+              >
+                Anotações
+              </button>
+            </div>
           </div>
+        </div>
+
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveMenuId?.(activeMenuId === lead.id ? null : lead.id);
+            }}
+            className={`p-2 rounded-full transition-colors ${activeMenuId === lead.id ? 'bg-gray-100 dark:bg-gray-700 text-primary' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600'}`}
+            aria-label="Ações do lead"
+          >
+            <MoreVertical size={18} />
+          </button>
+
+          {activeMenuId === lead.id && (
+            <div
+              ref={menuRef}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-50 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  onViewDetails?.(lead);
+                  setActiveMenuId?.(null);
+                }}
+                className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                <Eye size={16} className="text-gray-400" />
+                Ver Detalhes
+              </button>
+              <div className="h-px bg-gray-100 dark:bg-gray-700 mx-2 my-1" />
+              <button
+                type="button"
+                onClick={() => onDeleteLead?.(lead.id)}
+                className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 font-medium"
+              >
+                <Trash2 size={16} />
+                Excluir Lead
+              </button>
+            </div>
+          )}
         </div>
       </div>
       {lead.tags && lead.tags.length > 0 && (
@@ -130,7 +185,16 @@ const LeadCard: React.FC<{ lead: Lead; onOpenNotes?: (lead: Lead) => void }> = (
 type KanbanColumnProps = { id: string; title: string; leads: Lead[]; colorClass: string };
 
 // Kanban Column Component
-const KanbanColumn: React.FC<KanbanColumnProps & { onOpenNotes: (lead: Lead) => void }> = ({ id, title, leads, colorClass, onOpenNotes }) => {
+const KanbanColumn: React.FC<
+  KanbanColumnProps & {
+    onOpenNotes: (lead: Lead) => void;
+    activeMenuId: string | null;
+    setActiveMenuId: (id: string | null) => void;
+    menuRef: React.RefObject<HTMLDivElement>;
+    onViewDetails: (lead: Lead) => void;
+    onDeleteLead: (leadId: string) => void;
+  }
+> = ({ id, title, leads, colorClass, onOpenNotes, activeMenuId, setActiveMenuId, menuRef, onViewDetails, onDeleteLead }) => {
   const { setNodeRef } = useDroppable({ id });
 
   return (
@@ -149,7 +213,16 @@ const KanbanColumn: React.FC<KanbanColumnProps & { onOpenNotes: (lead: Lead) => 
       <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
         <div className="p-3 space-y-3 overflow-y-auto flex-1 min-h-0">
           {leads.map(lead => (
-            <LeadCard key={lead.id} lead={lead} onOpenNotes={onOpenNotes} />
+            <LeadCard
+              key={lead.id}
+              lead={lead}
+              onOpenNotes={onOpenNotes}
+              activeMenuId={activeMenuId}
+              setActiveMenuId={setActiveMenuId}
+              menuRef={menuRef}
+              onViewDetails={onViewDetails}
+              onDeleteLead={onDeleteLead}
+            />
           ))}
         </div>
       </SortableContext>
@@ -882,12 +955,33 @@ const Leads: React.FC = () => {
                   leads={statusLeads}
                   colorClass={STATUS_COLORS[status]}
                   onOpenNotes={(lead) => setNotesModalLead(lead)}
+                  activeMenuId={activeMenuId}
+                  setActiveMenuId={setActiveMenuId}
+                  menuRef={menuRef}
+                  onViewDetails={(lead) => {
+                    setDetailsModalLead(lead);
+                    setActiveMenuId(null);
+                  }}
+                  onDeleteLead={(leadId) => handleDeleteLead(leadId)}
                 />
               ))}
             </div>
           </div>
           <DragOverlay dropAnimation={dropAnimation}>
-            {activeLead ? <LeadCard lead={activeLead} onOpenNotes={(lead) => setNotesModalLead(lead)} /> : null}
+            {activeLead ? (
+              <LeadCard
+                lead={activeLead}
+                onOpenNotes={(lead) => setNotesModalLead(lead)}
+                activeMenuId={activeMenuId}
+                setActiveMenuId={setActiveMenuId}
+                menuRef={menuRef}
+                onViewDetails={(lead) => {
+                  setDetailsModalLead(lead);
+                  setActiveMenuId(null);
+                }}
+                onDeleteLead={(leadId) => handleDeleteLead(leadId)}
+              />
+            ) : null}
           </DragOverlay>
         </DndContext>
       )}
