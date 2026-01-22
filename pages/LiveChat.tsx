@@ -168,6 +168,8 @@ const LiveChat: React.FC = () => {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [activeLead, setActiveLead] = useState<Lead | null>(null);
+
+  const activeChatIdRef = useRef<string | null>(null);
   
   const [inputMessage, setInputMessage] = useState('');
   const [isAiActive, setIsAiActive] = useState(false);
@@ -179,6 +181,20 @@ const LiveChat: React.FC = () => {
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notesDraft, setNotesDraft] = useState('');
   const [isSavingNotes, setIsSavingNotes] = useState(false);
+
+  const handleSelectConversation = useCallback(
+    (conv: Conversation) => {
+      if (!conv?.id) return;
+      if (conv.id === activeChatId) return;
+
+      // Pre-set lead so the header doesn't flash a skeleton while state syncs.
+      if (conv.lead) setActiveLead(conv.lead);
+      setIsEditingNotes(false);
+      setNotesDraft('');
+      setActiveChatId(conv.id);
+    },
+    [activeChatId]
+  );
 
   const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
   const [attachUrl, setAttachUrl] = useState('');
@@ -305,6 +321,10 @@ const LiveChat: React.FC = () => {
     }
     return [...next, incoming];
   }, []);
+
+  useEffect(() => {
+    activeChatIdRef.current = activeChatId;
+  }, [activeChatId]);
 
   const ensureAbsoluteUrl = (url: string) => {
     let cleaned = (url || '').trim().replace(/^\/+/, '');
@@ -501,43 +521,47 @@ const LiveChat: React.FC = () => {
 
   useEffect(() => {
     fetchConversations();
-    
+
     // Realtime Subscription for new messages
     const channel = supabase
-    .channel('public:conversations')
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversations' }, (payload) => {
+      .channel('public:conversations')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversations' }, (payload) => {
         const newMsg = payload.new as Message;
+        const currentActiveChatId = activeChatIdRef.current;
+
         // If message belongs to active chat, append it
-        if (activeChatId && newMsg.lead_id === activeChatId) { 
-            setMessages(prev => {
-                return mergeIncomingMessage(prev, newMsg);
-            });
+        if (currentActiveChatId && newMsg.lead_id === currentActiveChatId) {
+          setMessages((prev) => mergeIncomingMessage(prev, newMsg));
         }
+
         const shouldIncrementUnread =
           newMsg.sender_type === 'contact' &&
-          (!activeChatId || newMsg.lead_id !== activeChatId);
+          (!currentActiveChatId || newMsg.lead_id !== currentActiveChatId);
 
         // Update sidebar "last message" + unread badge
-        setConversations(prev =>
-            prev
-              .map(c =>
-                c.id === newMsg.lead_id // In our schema, Conversation ID maps to Lead ID contextually
-                  ? {
-                      ...c,
-                      last_message: newMsg.content,
-                      last_message_at: newMsg.created_at,
-                      unread_count: shouldIncrementUnread ? (c.unread_count || 0) + 1 : (c.unread_count || 0),
-                    }
-                  : c
-              )
-              .sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime())
+        setConversations((prev) =>
+          prev
+            .map((c) =>
+              c.id === newMsg.lead_id
+                ? {
+                    ...c,
+                    last_message: newMsg.content,
+                    last_message_at: newMsg.created_at,
+                    unread_count: shouldIncrementUnread
+                      ? (c.unread_count || 0) + 1
+                      : (c.unread_count || 0),
+                  }
+                : c
+            )
+            .sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime())
         );
-    })
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations' }, (payload) => {
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations' }, (payload) => {
         const updated = payload.new as Message;
+        const currentActiveChatId = activeChatIdRef.current;
 
         // If this updated row belongs to the active chat, update/merge it in-place.
-        if (activeChatId && updated.lead_id === activeChatId) {
+        if (currentActiveChatId && updated.lead_id === currentActiveChatId) {
           setMessages((prev) => {
             const idx = prev.findIndex((m) => m.id === updated.id);
             if (idx >= 0) {
@@ -559,13 +583,13 @@ const LiveChat: React.FC = () => {
             )
             .sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime())
         );
-    })
-    .subscribe();
+      })
+      .subscribe();
 
     return () => {
-        supabase.removeChannel(channel);
+      supabase.removeChannel(channel);
     };
-  }, [fetchConversations, activeChatId, mergeIncomingMessage]);
+  }, [fetchConversations, mergeIncomingMessage]);
 
   // When user opens a chat, consider it "viewed" and clear its unread badge.
   useEffect(() => {
@@ -1187,7 +1211,7 @@ const LiveChat: React.FC = () => {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {isLoadingConversations ? (
+          {isLoadingConversations && conversations.length === 0 ? (
             <div className="p-4 space-y-4">
                {[1, 2, 3].map(i => (
                  <div key={i} className="flex items-center gap-3 animate-pulse">
@@ -1215,7 +1239,7 @@ const LiveChat: React.FC = () => {
                 return (
                   <div 
                     key={conv.id}
-                    onClick={() => setActiveChatId(conv.id)}
+                    onClick={() => handleSelectConversation(conv)}
                     className={`p-4 border-b border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${isSelected ? 'bg-secondary/10 dark:bg-primary/20 border-l-4 border-l-primary' : ''}`}
                   >
                     <div className="flex items-center gap-3">
@@ -1408,11 +1432,7 @@ const LiveChat: React.FC = () => {
               className="flex-1 overflow-y-auto p-6 space-y-4 relative"
               style={{ backgroundImage: 'radial-gradient(rgba(0,0,0,0.1) 1px, transparent 0)', backgroundSize: '20px 20px' }}
             >
-                {isLoadingMessages ? (
-                    <div className="flex items-center justify-center h-full">
-                        <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
-                    </div>
-                ) : messages.length === 0 ? (
+                {messages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-gray-400 opacity-60">
                          <p>Nenhuma mensagem ainda.</p>
                          <p className="text-xs">Comece a conversa agora.</p>
@@ -1430,6 +1450,35 @@ const LiveChat: React.FC = () => {
                     }
                     return <MessageBubble key={item.key} msg={item.msg} />;
                   })
+                )}
+
+                {/* Non-blocking loading: keep layout stable and avoid "page blink" when switching chats. */}
+                {isLoadingMessages && (
+                  <div className="absolute inset-0 pointer-events-none">
+                    {messages.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full">
+                        <div className="w-full max-w-xl space-y-3">
+                          <div className="flex justify-start">
+                            <div className="h-10 w-2/3 rounded-lg bg-white/60 dark:bg-gray-800/60 animate-pulse border border-gray-200/60 dark:border-gray-700/60" />
+                          </div>
+                          <div className="flex justify-end">
+                            <div className="h-10 w-1/2 rounded-lg bg-white/60 dark:bg-gray-800/60 animate-pulse border border-gray-200/60 dark:border-gray-700/60" />
+                          </div>
+                          <div className="flex justify-start">
+                            <div className="h-10 w-3/4 rounded-lg bg-white/60 dark:bg-gray-800/60 animate-pulse border border-gray-200/60 dark:border-gray-700/60" />
+                          </div>
+                          <div className="flex justify-end">
+                            <div className="h-10 w-2/5 rounded-lg bg-white/60 dark:bg-gray-800/60 animate-pulse border border-gray-200/60 dark:border-gray-700/60" />
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="absolute top-4 right-4 inline-flex items-center gap-2 rounded-full bg-white/80 dark:bg-gray-900/80 border border-gray-200 dark:border-gray-700 px-3 py-1 shadow-sm">
+                        <Loader2 className="w-4 h-4 text-gray-500 animate-spin" />
+                        <span className="text-xs font-medium text-gray-600 dark:text-gray-300">Carregando…</span>
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {showScrollToBottom && (
