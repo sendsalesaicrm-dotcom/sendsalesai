@@ -56,7 +56,7 @@ const SignUp: React.FC = () => {
           
           <div className="flex flex-col items-center mb-8">
             <img 
-              src="https://ohgcufkcrpehkvxavmhw.supabase.co/storage/v1/object/public/logo/logo%20(1).png" 
+              src="https://ohgcufkcrpehkvxavmhw.supabase.co/storage/v1/object/public/logo/x.png" 
               alt="SendSales.ai" 
               className="w-16 h-16 mb-4 object-contain" 
             />
@@ -83,7 +83,7 @@ const SignUp: React.FC = () => {
                   required
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className="block w-full pl-10 sm:text-sm border-gray-300 rounded-lg focus:ring-primary focus:border-primary p-2.5 border bg-gray-50 focus:bg-white transition-colors"
+                  className="block w-full pl-10 sm:text-sm border-gray-300 rounded-lg focus:ring-[#005C4B] focus:border-[#005C4B] p-2.5 border bg-gray-50 focus:bg-white transition-colors"
                   placeholder="Seu nome"
                 />
               </div>
@@ -104,7 +104,7 @@ const SignUp: React.FC = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pl-10 sm:text-sm border-gray-300 rounded-lg focus:ring-primary focus:border-primary p-2.5 border bg-gray-50 focus:bg-white transition-colors"
+                  className="block w-full pl-10 sm:text-sm border-gray-300 rounded-lg focus:ring-[#005C4B] focus:border-[#005C4B] p-2.5 border bg-gray-50 focus:bg-white transition-colors"
                   placeholder="voce@empresa.com"
                 />
               </div>
@@ -126,7 +126,7 @@ const SignUp: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   minLength={6}
-                  className="block w-full pl-10 sm:text-sm border-gray-300 rounded-lg focus:ring-primary focus:border-primary p-2.5 border bg-gray-50 focus:bg-white transition-colors"
+                  className="block w-full pl-10 sm:text-sm border-gray-300 rounded-lg focus:ring-[#005C4B] focus:border-[#005C4B] p-2.5 border bg-gray-50 focus:bg-white transition-colors"
                   placeholder="••••••••"
                 />
               </div>
@@ -137,7 +137,7 @@ const SignUp: React.FC = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#005C4B] hover:bg-[#004a3c] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#005C4B] transition-all disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {isLoading ? (
                   <>
