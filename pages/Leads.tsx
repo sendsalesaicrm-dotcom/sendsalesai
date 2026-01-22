@@ -620,7 +620,7 @@ const Leads: React.FC = () => {
                 </div>
 
                 <div className="shrink-0">
-                  <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold capitalize ${STATUS_COLORS[detailsModalLead.status] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'}`}>
+                  <span className={`ss-keep-colored inline-flex px-3 py-1 rounded-full text-xs font-semibold capitalize ${STATUS_COLORS[detailsModalLead.status] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'}`}>
                     {STATUS_MAP[detailsModalLead.status] || detailsModalLead.status}
                   </span>
                 </div>
@@ -795,7 +795,7 @@ const Leads: React.FC = () => {
                         </div>
                     </td>
                     <td className="px-6 py-4">
-                        <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium capitalize ${STATUS_COLORS[lead.status] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'}`}>
+                        <span className={`ss-keep-colored inline-flex px-2.5 py-1 rounded-full text-xs font-medium capitalize ${STATUS_COLORS[lead.status] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'}`}>
                         {STATUS_MAP[lead.status] || lead.status}
                         </span>
                     </td>

@@ -1,0 +1,112 @@
+/*
+  Global CSS overrides.
+  This project primarily uses Tailwind via CDN (see index.html).
+*/
+
+:root {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+/*
+  Dark mode rule:
+  In dark mode, force *colored* text to white across the app.
+  Excludes LiveChat because Layout doesn't wrap /chat with .ss-dark-text-white.
+
+  Implementation notes:
+  - We only match explicit color utilities (text-blue-500, text-primary, dark:text-green-400, etc).
+  - We intentionally avoid matching typography utilities like text-sm / text-xs.
+  - We avoid hover variants like hover:text-blue-500 by matching only tokens that start with
+    `text-...` / `dark:text-...` at the beginning of the class string or after a space.
+*/
+
+.dark .ss-dark-text-white :is(
+  /* Custom theme tokens */
+  [class^="text-primary"],
+  [class*=" text-primary"],
+  [class^="dark:text-primary"],
+  [class*=" dark:text-primary"],
+  [class^="text-secondary"],
+  [class*=" text-secondary"],
+  [class^="dark:text-secondary"],
+  [class*=" dark:text-secondary"],
+  [class^="text-accent"],
+  [class*=" text-accent"],
+  [class^="dark:text-accent"],
+  [class*=" dark:text-accent"],
+
+  /* Tailwind palette colors */
+  [class^="text-red-"],
+  [class*=" text-red-"],
+  [class^="dark:text-red-"],
+  [class*=" dark:text-red-"],
+  [class^="text-orange-"],
+  [class*=" text-orange-"],
+  [class^="dark:text-orange-"],
+  [class*=" dark:text-orange-"],
+  [class^="text-amber-"],
+  [class*=" text-amber-"],
+  [class^="dark:text-amber-"],
+  [class*=" dark:text-amber-"],
+  [class^="text-yellow-"],
+  [class*=" text-yellow-"],
+  [class^="dark:text-yellow-"],
+  [class*=" dark:text-yellow-"],
+  [class^="text-lime-"],
+  [class*=" text-lime-"],
+  [class^="dark:text-lime-"],
+  [class*=" dark:text-lime-"],
+  [class^="text-green-"],
+  [class*=" text-green-"],
+  [class^="dark:text-green-"],
+  [class*=" dark:text-green-"],
+  [class^="text-emerald-"],
+  [class*=" text-emerald-"],
+  [class^="dark:text-emerald-"],
+  [class*=" dark:text-emerald-"],
+  [class^="text-teal-"],
+  [class*=" text-teal-"],
+  [class^="dark:text-teal-"],
+  [class*=" dark:text-teal-"],
+  [class^="text-cyan-"],
+  [class*=" text-cyan-"],
+  [class^="dark:text-cyan-"],
+  [class*=" dark:text-cyan-"],
+  [class^="text-sky-"],
+  [class*=" text-sky-"],
+  [class^="dark:text-sky-"],
+  [class*=" dark:text-sky-"],
+  [class^="text-blue-"],
+  [class*=" text-blue-"],
+  [class^="dark:text-blue-"],
+  [class*=" dark:text-blue-"],
+  [class^="text-indigo-"],
+  [class*=" text-indigo-"],
+  [class^="dark:text-indigo-"],
+  [class*=" dark:text-indigo-"],
+  [class^="text-violet-"],
+  [class*=" text-violet-"],
+  [class^="dark:text-violet-"],
+  [class*=" dark:text-violet-"],
+  [class^="text-purple-"],
+  [class*=" text-purple-"],
+  [class^="dark:text-purple-"],
+  [class*=" dark:text-purple-"],
+  [class^="text-fuchsia-"],
+  [class*=" text-fuchsia-"],
+  [class^="dark:text-fuchsia-"],
+  [class*=" dark:text-fuchsia-"],
+  [class^="text-pink-"],
+  [class*=" text-pink-"],
+  [class^="dark:text-pink-"],
+  [class*=" dark:text-pink-"],
+  [class^="text-rose-"],
+  [class*=" text-rose-"],
+  [class^="dark:text-rose-"],
+  [class*=" dark:text-rose-"]
+):not(.ss-keep-colored) {
+  color: rgb(255 255 255 / 0.96) !important;
+}

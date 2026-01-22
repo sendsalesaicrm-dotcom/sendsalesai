@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import Sidebar from './Sidebar';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 
 const Layout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const location = useLocation();
+
+  const isLiveChatRoute = location.pathname === '/chat' || location.pathname.startsWith('/chat/');
 
   return (
     <div className="flex bg-background dark:bg-gray-900 min-h-screen transition-colors duration-300">
@@ -31,7 +34,9 @@ const Layout: React.FC = () => {
             Menu
           </button>
         </div>
-        <Outlet />
+        <div className={isLiveChatRoute ? undefined : 'ss-dark-text-white'}>
+          <Outlet />
+        </div>
       </main>
     </div>
   );
