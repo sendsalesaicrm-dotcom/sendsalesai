@@ -72,6 +72,79 @@ serve(async (req) => {
 
       const normalizePhone = (raw: string) => String(raw || '').replace(/\D/g, '');
 
+      const stripJid = (jidRaw: string) => {
+        const jid = String(jidRaw || '').trim();
+        if (!jid) return '';
+        return jid
+          .replace('@s.whatsapp.net', '')
+          .replace('@c.us', '');
+      };
+
+      const getEvolutionKey = (raw: any) =>
+        raw?.key ||
+        raw?.message?.key ||
+        raw?.message?.message?.key ||
+        raw?.data?.key ||
+        raw?.data?.message?.key ||
+        raw?.data?.message?.message?.key ||
+        {};
+
+      const getEvolutionPhoneFromItem = (item: any): {
+        phone: string;
+        dropReason?: string;
+        rawJid?: string;
+      } => {
+        const key = getEvolutionKey(item);
+
+        const rawPrimary =
+          key?.senderPn ||
+          key?.remoteJid ||
+          key?.participant ||
+          item?.remoteJid ||
+          item?.from ||
+          item?.sender ||
+          item?.participant ||
+          item?.data?.from ||
+          item?.data?.sender ||
+          '';
+
+        const rawAlt =
+          key?.remoteJidAlt ||
+          key?.remoteJidALT ||
+          item?.remoteJidAlt ||
+          item?.remoteJidALT ||
+          item?.data?.remoteJidAlt ||
+          item?.data?.remoteJidALT ||
+          item?.message?.key?.remoteJidAlt ||
+          item?.message?.key?.remoteJidALT ||
+          item?.data?.message?.key?.remoteJidAlt ||
+          item?.data?.message?.key?.remoteJidALT ||
+          '';
+
+        const primaryJid = String(rawPrimary || '').trim();
+        const altJid = String(rawAlt || '').trim();
+
+        // If primary is a LID address, never treat it as phone. Prefer remoteJidAlt.
+        if (primaryJid.toLowerCase().endsWith('@lid')) {
+          if (altJid && altJid.includes('@')) {
+            const phone = normalizePhone(stripJid(altJid));
+            return { phone, rawJid: altJid };
+          }
+          return { phone: '', dropReason: 'lid_without_remoteJidAlt', rawJid: primaryJid };
+        }
+
+        // senderPn sometimes comes as digits only.
+        const cleanedPrimary = normalizePhone(stripJid(primaryJid));
+        if (cleanedPrimary) return { phone: cleanedPrimary, rawJid: primaryJid };
+
+        if (altJid && altJid.includes('@')) {
+          const phone = normalizePhone(stripJid(altJid));
+          return { phone, rawJid: altJid };
+        }
+
+        return { phone: '', dropReason: 'missing_phone', rawJid: primaryJid || altJid };
+      };
+
       const getEvolutionExternalId = (raw: any): string | null => {
         // Prefer the WhatsApp message key id (most stable/unique across Evolution versions).
         // Some payloads include a top-level `id` that is NOT the message id and can collide
@@ -185,34 +258,25 @@ serve(async (req) => {
               item?.data?.instanceName ||
               instanceName;
 
-            const key =
-              item?.key ||
-              item?.message?.key ||
-              item?.message?.message?.key ||
-              item?.data?.key ||
-              item?.data?.message?.key ||
-              item?.data?.message?.message?.key ||
-              {};
+            const key = getEvolutionKey(item);
             const fromMe = key?.fromMe === true || key?.fromMe === 'true';
             if (fromMe) continue;
 
-            const rawJid =
-              key?.senderPn ||
-              key?.remoteJid ||
-              key?.participant ||
-              item?.remoteJid ||
-              item?.from ||
-              item?.sender ||
-              item?.participant ||
-              item?.data?.from ||
-              item?.data?.sender ||
-              '';
-            const jid = String(rawJid);
-            const stripped = jid
-              .replace('@s.whatsapp.net', '')
-              .replace('@c.us', '');
-            const phone = normalizePhone(stripped);
-            if (!phone) continue;
+            const resolved = getEvolutionPhoneFromItem(item);
+            const phone = resolved.phone;
+            if (!phone) {
+              if (resolved.dropReason === 'lid_without_remoteJidAlt') {
+                safeInsertWebhookDebugEvent({
+                  provider: 'evolution',
+                  event_type: event || null,
+                  instance_name: itemInstanceName || null,
+                  parsed_count: 0,
+                  drop_reason: 'lid_without_remoteJidAlt',
+                  payload: item,
+                });
+              }
+              continue;
+            }
 
             const msgContainer = item?.message || item?.data?.message;
             const msgContent = msgContainer?.message || msgContainer;
@@ -471,24 +535,55 @@ serve(async (req) => {
         if (msg.file_name) payload.file_name = msg.file_name;
         if (msg.caption) payload.caption = msg.caption;
 
-        let { error: insErr } = await supabase
-          .from('conversations')
-          .upsert(payload, { onConflict: 'provider,external_id' });
+        // IMPORTANT:
+        // The unique index for (provider, external_id) is PARTIAL (WHERE external_id IS NOT NULL).
+        // So ON CONFLICT will ERROR when external_id is null/empty. Only upsert when we have it.
+        const hasExternalId = typeof msg.external_id === 'string' && msg.external_id.trim().length > 0;
 
-        // If production DB hasn't received the `raw` column yet, retry without it.
-        if (insErr && payload.raw) {
-          const msgText = String((insErr as any)?.message || '');
-          if (msgText.includes('column') && msgText.includes('raw')) {
-            delete payload.raw;
-            const retry = await supabase
-              .from('conversations')
-              .upsert(payload, { onConflict: 'provider,external_id' });
-            insErr = retry.error;
+        let insErr: any = null;
+        if (hasExternalId) {
+          let up = await supabase
+            .from('conversations')
+            .upsert(payload, { onConflict: 'provider,external_id' });
+          insErr = up.error;
+
+          // If production DB hasn't received the `raw` column yet, retry without it.
+          if (insErr && payload.raw) {
+            const msgText = String((insErr as any)?.message || '');
+            if (msgText.includes('column') && msgText.includes('raw')) {
+              delete payload.raw;
+              up = await supabase
+                .from('conversations')
+                .upsert(payload, { onConflict: 'provider,external_id' });
+              insErr = up.error;
+            }
+          }
+
+          // If the UNIQUE index/migration wasn't applied yet, fallback to insert.
+          if (insErr) {
+            const msgText = String((insErr as any)?.message || '');
+            if (msgText.includes('no unique') || msgText.includes('ON CONFLICT')) {
+              const ins = await supabase.from('conversations').insert(payload);
+              insErr = ins.error;
+            }
+          }
+        } else {
+          // No external_id: plain insert (dedupe is not possible).
+          const ins = await supabase.from('conversations').insert(payload);
+          insErr = ins.error;
+
+          // If production DB hasn't received the `raw` column yet, retry without it.
+          if (insErr && payload.raw) {
+            const msgText = String((insErr as any)?.message || '');
+            if (msgText.includes('column') && msgText.includes('raw')) {
+              delete payload.raw;
+              const retry = await supabase.from('conversations').insert(payload);
+              insErr = retry.error;
+            }
           }
         }
 
         if (insErr) {
-          // If we don't have external_id, upsert can't dedupe; still log.
           console.error('Insert conversation error:', insErr);
         }
       }
