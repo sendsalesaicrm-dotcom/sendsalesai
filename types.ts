@@ -72,12 +72,23 @@ export interface Message {
   content: string;
   created_at: string;
 
+  // Persistence / provider metadata (stored in public.conversations)
+  provider?: 'meta' | 'evolution' | string;
+  external_id?: string | null;
+  raw?: any;
+
   // Optional media payload (Evolution sendMedia / future inbound media)
   media_type?: 'image' | 'video' | 'document' | 'audio' | string;
   media_url?: string | null;
   mime_type?: string | null;
   file_name?: string | null;
   caption?: string | null;
+
+  // UI-only fields (not persisted)
+  local_send_status?: 'sending' | 'queued' | 'sent' | 'failed' | null;
+  local_send_error?: string | null;
+  local_media_status?: 'resolving' | 'error' | null;
+  local_media_error?: string | null;
 }
 
 export interface Conversation {

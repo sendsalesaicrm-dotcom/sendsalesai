@@ -2,146 +2,194 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Evolution v2 - Teste de Mensagens</title>
+    <title>Evolution v2 - CRM Chat Pro</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; padding: 20px; background: #121212; color: #e0e0e0; }
-        #chat-container { max-width: 500px; margin: auto; background: #1e1e1e; padding: 20px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        .config-section { background: #2d2d2d; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
-        #messages { height: 300px; overflow-y: auto; border: 1px solid #444; background: #0b141a; padding: 10px; margin-bottom: 10px; display: flex; flex-direction: column; }
-        .msg-box { margin-bottom: 8px; padding: 8px 12px; border-radius: 12px; max-width: 80%; font-size: 14px; }
-        .mine { align-self: flex-end; background: #005c4b; }
-        .others { align-self: flex-start; background: #202c33; }
-        .status { font-size: 11px; color: #888; text-align: center; margin-bottom: 5px; }
-        input, button { padding: 10px; border-radius: 4px; border: 1px solid #444; margin-bottom: 8px; width: 100%; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background: #121212; color: #e0e0e0; }
+        #chat-container { max-width: 600px; margin: auto; background: #1e1e1e; padding: 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: flex; flex-direction: column; height: 90vh; }
+        .config-section { background: #2d2d2d; padding: 15px; border-radius: 8px; margin-bottom: 15px; flex-shrink: 0; }
+        
+        #messages { flex-grow: 1; overflow-y: auto; border: 1px solid #333; background: #0b141a; padding: 15px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; border-radius: 8px; }
+        
+        /* Estilo dos Balões */
+        .msg-box { padding: 8px 12px; border-radius: 10px; max-width: 75%; font-size: 14px; position: relative; display: flex; flex-direction: column; word-wrap: break-word; }
+        .mine { align-self: flex-end; background: #005c4b; border-bottom-right-radius: 2px; }
+        .others { align-self: flex-start; background: #202c33; border-bottom-left-radius: 2px; }
+        
+        /* Metadados */
+        .msg-sender { font-size: 11px; font-weight: bold; color: #3eaf7c; margin-bottom: 3px; }
+        .msg-time { font-size: 10px; color: rgba(255,255,255,0.5); align-self: flex-end; margin-top: 4px; }
+        
+        /* Linha do Tempo */
+        .date-divider { text-align: center; margin: 15px 0; position: relative; }
+        .date-divider span { background: #1e1e1e; padding: 4px 12px; border-radius: 20px; font-size: 11px; color: #aaa; border: 1px solid #333; }
+
+        .btn-load-more { background: transparent; border: none; color: #3498db; cursor: pointer; font-size: 12px; margin: 10px auto; display: none; }
+        .img-msg { max-width: 100%; border-radius: 6px; margin-top: 5px; }
+        audio { width: 100%; height: 35px; margin-top: 5px; filter: invert(100%) hue-rotate(180deg) brightness(1.5); }
+        
+        input, button { padding: 10px; border-radius: 6px; border: 1px solid #444; margin-bottom: 8px; width: 100%; box-sizing: border-box; }
         input { background: #333; color: white; }
-        button { background: #3eaf7c; color: white; border: none; font-weight: bold; cursor: pointer; }
-        .btn-blue { background: #2563eb; }
-        .btn-orange { background: #d97706; }
+        button { background: #3eaf7c; color: white; font-weight: bold; cursor: pointer; border: none; }
+        .status { font-size: 11px; color: #888; text-align: center; margin-bottom: 5px; }
     </style>
 </head>
 <body>
 
     <div id="chat-container">
         <div class="config-section">
-            <h4>⚙️ Configuração</h4>
-            <input type="text" id="baseUrl" placeholder="https://api-exemplo.host">
+            <input type="text" id="baseUrl" placeholder="https://api.seuhost.com">
             <input type="text" id="instance" placeholder="Nome da Instância">
             <input type="text" id="apiKey" placeholder="API Key">
-            <input type="text" id="remoteJid" placeholder="Número Destino (ex: 5511...)">
-            <button id="btnAtivar" class="btn-orange">1. Forçar Ativação (Settings)</button>
-            <button id="btnConectar" class="btn-blue">2. Conectar WebSocket</button>
+            <input type="text" id="remoteJid" placeholder="55119... @s.whatsapp.net">
+            <div style="display: flex; gap: 5px;">
+                <button onclick="conectarWS()" style="background: #2563eb;">1. Conectar</button>
+                <button onclick="loadChat(1)" style="background: #d97706;">2. Carregar Chat</button>
+            </div>
         </div>
         
         <div id="status-label" class="status">Desconectado</div>
-        <div id="presence-val" class="status">Status: ---</div>
-        <div id="messages"></div>
+        <div id="messages">
+            <button id="btnLoadMore" class="btn-load-more" onclick="loadMore()">↑ Carregar mensagens anteriores</button>
+        </div>
 
-        <input type="text" id="messageInput" placeholder="Mensagem...">
-        <button id="btnEnviar">Enviar</button>
+        <div style="display: flex; gap: 8px;">
+            <input type="text" id="messageInput" placeholder="Sua mensagem...">
+            <button onclick="enviar()" style="width: 80px;">➤</button>
+        </div>
     </div>
 
 <script>
-    // Carregar dados salvos
+    let currentPage = 1;
+    let lastDateLabel = "";
+
+    // Persistência
     ['baseUrl', 'instance', 'apiKey', 'remoteJid'].forEach(id => {
         document.getElementById(id).value = localStorage.getItem(id) || '';
         document.getElementById(id).oninput = (e) => localStorage.setItem(id, e.target.value);
     });
 
+    // Formatação de Data/Hora
+    const formatTime = (ts) => new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const getDateLabel = (ts) => {
+        const d = new Date(ts * 1000).toLocaleDateString();
+        return d === new Date().toLocaleDateString() ? "Hoje" : d;
+    };
+
     async function apiRequest(endpoint, body) {
-        const baseUrl = document.getElementById('baseUrl').value.replace(/\/$/, "");
-        const instance = document.getElementById('instance').value;
-        const apiKey = document.getElementById('apiKey').value;
-        
-        // TENTATIVA 1: Tenta o padrão /endpoint/instancia
-        const url = `${baseUrl}/${endpoint}/${instance}`;
-        
-        try {
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
-                body: JSON.stringify(body)
-            });
-            const data = await res.json();
-            console.log(`Resposta de ${endpoint}:`, data);
-            return { ok: res.ok, data };
-        } catch (e) {
-            return { ok: false, error: e.message };
+        const url = `${document.getElementById('baseUrl').value}/${endpoint}/${document.getElementById('instance').value}`;
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'apikey': document.getElementById('apiKey').value },
+            body: JSON.stringify(body)
+        });
+        return res.json();
+    }
+
+    async function renderMsg(msg, position = 'append') {
+        if (document.getElementById(`msg-${msg.key.id}`)) return;
+
+        const box = document.getElementById('messages');
+        const isMine = msg.key.fromMe;
+        const ts = msg.messageTimestamp;
+        const type = msg.messageType || (msg.message ? Object.keys(msg.message)[0] : 'conversation');
+
+        // Divisor de Data (Timeline)
+        if (position === 'append') {
+            const dateLabel = getDateLabel(ts);
+            if (dateLabel !== lastDateLabel) {
+                const divider = document.createElement('div');
+                divider.className = 'date-divider';
+                divider.innerHTML = `<span>${dateLabel}</span>`;
+                box.appendChild(divider);
+                lastDateLabel = dateLabel;
+            }
+        }
+
+        const div = document.createElement('div');
+        div.className = `msg-box ${isMine ? 'mine' : 'others'}`;
+        div.id = `msg-${msg.key.id}`;
+
+        // Cabeçalho com nome do remetente
+        let html = !isMine ? `<span class="msg-sender">${msg.pushName || 'Contato'}</span>` : '';
+
+        // Conteúdo por MimeType/Tipo
+        if (type === 'imageMessage') {
+            html += `<i style="font-size:12px">📸 Carregando...</i>`;
+            fetchMedia(msg.key.id, msg.message.imageMessage.mimetype, div, msg.message.imageMessage.caption);
+        } else if (type === 'audioMessage') {
+            html += `<i style="font-size:12px">🎤 Áudio</i>`;
+            fetchMedia(msg.key.id, msg.message.audioMessage.mimetype, div);
+        } else {
+            const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text || "";
+            html += `<span>${text}</span>`;
+        }
+
+        html += `<span class="msg-time">${formatTime(ts)}</span>`;
+        div.innerHTML = html;
+
+        if (position === 'append') {
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        } else {
+            document.getElementById('btnLoadMore').after(div);
         }
     }
 
-    // 1. Forçar Settings (Removi o prefixo /instance/ da URL)
-    document.getElementById('btnAtivar').onclick = async () => {
-        const settings = {
-            websocket: {
-                enabled: true,
-                events: ["MESSAGES_UPSERT", "PRESENCE_UPDATE"]
-            }
-        };
-        const res = await apiRequest('settings/set', settings);
-        alert(res.ok ? "Configurações Ativadas!" : "Erro 404: Tentei /settings/set/");
-    };
+    async function fetchMedia(id, mime, container, caption = "") {
+        const res = await apiRequest('chat/getBase64FromMediaMessage', { message: { key: { id: id } } });
+        if (res.base64) {
+            let mediaHtml = mime.includes('image') 
+                ? `<img src="data:${mime};base64,${res.base64}" class="img-msg">` 
+                : `<audio controls src="data:${mime};base64,${res.base64}"></audio>`;
+            if (caption) mediaHtml += `<div style="margin-top:5px">${caption}</div>`;
+            
+            const time = container.querySelector('.msg-time').innerText;
+            const sender = container.querySelector('.msg-sender')?.outerHTML || '';
+            container.innerHTML = sender + mediaHtml + `<span class="msg-time">${time}</span>`;
+        }
+    }
 
-    // 2. WebSocket v2 para Eventos
-    document.getElementById('btnConectar').onclick = () => {
-        const baseUrl = document.getElementById('baseUrl').value.replace(/\/$/, "").replace(/^https?/, "wss");
-        const instance = document.getElementById('instance').value;
-        const apiKey = document.getElementById('apiKey').value;
+    async function loadChat(page = 1) {
+        let jid = document.getElementById('remoteJid').value;
+        if (!jid.includes('@')) jid += '@s.whatsapp.net';
 
-        // Na v2, para escutar eventos, usamos apenas /instance/NOME
-        const wsUrl = `${baseUrl}/instance/${instance}?apikey=${apiKey}`;
-        console.log("Tentando WebSocket em:", wsUrl);
+        const res = await apiRequest('chat/findMessages', { where: { key: { remoteJid: jid } }, limit: 50, page: page });
         
-        const socket = new WebSocket(wsUrl);
-
-        socket.onopen = () => {
-            document.getElementById('status-label').innerText = "✅ WebSocket Conectado";
-            document.getElementById('status-label').style.color = "#3eaf7c";
-        };
-
-        socket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            console.log("Novo Evento:", data);
-
-            if (data.event === "messages.upsert") {
-                const msg = data.data;
-                if (!msg.key.fromMe) {
-                    const texto = msg.message?.conversation || msg.message?.extendedTextMessage?.text;
-                    if (texto) renderMsg(texto, false);
-                }
+        if (res.messages) {
+            if (page === 1) {
+                lastDateLabel = ""; // Reseta timeline ao recarregar
+                const btn = document.getElementById('btnLoadMore');
+                document.getElementById('messages').innerHTML = '';
+                document.getElementById('messages').appendChild(btn);
             }
             
-            if (data.event === "presence.update") {
-                const p = data.data;
-                if (p.id.includes(document.getElementById('remoteJid').value)) {
-                    const s = p.presences[p.id]?.lastKnownPresence;
-                    document.getElementById('presence-val').innerText = `Status: ${s || '---'}`;
-                }
-            }
-        };
+            const sorted = res.messages.records.sort((a,b) => a.messageTimestamp - b.messageTimestamp);
+            if (page === 1) sorted.forEach(m => renderMsg(m));
+            else sorted.reverse().forEach(m => renderMsg(m, 'prepend'));
 
-        socket.onclose = () => {
-            document.getElementById('status-label').innerText = "❌ WebSocket Fechado";
-            document.getElementById('status-label').style.color = "#ef4444";
-        };
-    };
-
-    document.getElementById('btnEnviar').onclick = async () => {
-        const num = document.getElementById('remoteJid').value;
-        const txt = document.getElementById('messageInput').value;
-        const res = await apiRequest('message/sendText', { number: num, text: txt });
-        if (res.ok) {
-            renderMsg(txt, true);
-            document.getElementById('messageInput').value = '';
+            document.getElementById('btnLoadMore').style.display = page < res.messages.pages ? 'block' : 'none';
         }
-    };
+    }
 
-    function renderMsg(t, mine) {
-        const div = document.createElement('div');
-        div.className = `msg-box ${mine ? 'mine' : 'others'}`;
-        div.innerText = t;
-        const box = document.getElementById('messages');
-        box.appendChild(div);
-        box.scrollTop = box.scrollHeight;
+    function loadMore() { currentPage++; loadChat(currentPage); }
+
+    function conectarWS() {
+        const url = document.getElementById('baseUrl').value.replace(/^http/, 'ws') + `/instance/${document.getElementById('instance').value}?apikey=${document.getElementById('apiKey').value}`;
+        const socket = new WebSocket(url);
+        socket.onmessage = (e) => {
+            const data = JSON.parse(e.data);
+            if (data.event === 'messages.upsert') renderMsg(data.data);
+        };
+        document.getElementById('status-label').innerText = "✅ Conectado";
+    }
+
+    async function enviar() {
+        const input = document.getElementById('messageInput');
+        const res = await apiRequest('message/sendText', { number: document.getElementById('remoteJid').value, text: input.value });
+        if (res.key) {
+            renderMsg(res);
+            input.value = '';
+        }
     }
 </script>
 </body>
