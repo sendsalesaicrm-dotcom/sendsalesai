@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useLayoutEffect, useMemo } from 'react';
-import { Search, MoreVertical, Send, Paperclip, Bot, Sparkles, User, Tag, Phone, Edit2, Loader2, MessageSquareOff, Plus, ShieldCheck, ChevronDown, Clock, Check } from 'lucide-react';
+import { Search, MoreVertical, Send, Paperclip, Bot, Sparkles, User, Tag, Phone, Edit2, Loader2, MessageSquareOff, Plus, ShieldCheck, ChevronDown, Clock, Check, Bell } from 'lucide-react';
 import { format, isSameDay } from 'date-fns';
 import { Conversation, Message, Lead } from '../types';
 import { suggestReply } from '../services/geminiService';
@@ -409,16 +409,24 @@ const LiveChat: React.FC = () => {
       if (error) throw error;
 
       if (leads) {
-        const mappedConversations: Conversation[] = leads.map(lead => ({
-          id: lead.id,
-          lead_id: lead.id,
-          last_message: 'Clique para ver o histórico',
-          last_message_at: lead.last_active || lead.created_at || new Date().toISOString(),
-          unread_count: 0,
-          status: 'open',
-          lead: lead
-        }));
-        setConversations(mappedConversations);
+        setConversations((prev) => {
+          const prevUnread = new Map<string, number>(
+            prev.map((c) => [String(c.id), Number(c.unread_count || 0)])
+          );
+          const mappedConversations: Conversation[] = leads.map((lead: any) => {
+            const id = String(lead?.id);
+            return {
+            id,
+            lead_id: id,
+            last_message: 'Clique para ver o histórico',
+            last_message_at: lead.last_active || lead.created_at || new Date().toISOString(),
+            unread_count: Number(prevUnread.get(id) ?? 0),
+            status: 'open',
+            lead: lead,
+            };
+          });
+          return mappedConversations;
+        });
       }
     } catch (error) {
       console.error("Error fetching leads:", error);
@@ -441,13 +449,24 @@ const LiveChat: React.FC = () => {
                 return mergeIncomingMessage(prev, newMsg);
             });
         }
-        // Update sidebar "last message"
-        setConversations(prev => 
-            prev.map(c => 
-              c.id === newMsg.lead_id // In our schema, Conversation ID maps to Lead ID contextually
-                ? { ...c, last_message: newMsg.content, last_message_at: newMsg.created_at } 
-                : c
-            ).sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime())
+        const shouldIncrementUnread =
+          newMsg.sender_type === 'contact' &&
+          (!activeChatId || newMsg.lead_id !== activeChatId);
+
+        // Update sidebar "last message" + unread badge
+        setConversations(prev =>
+            prev
+              .map(c =>
+                c.id === newMsg.lead_id // In our schema, Conversation ID maps to Lead ID contextually
+                  ? {
+                      ...c,
+                      last_message: newMsg.content,
+                      last_message_at: newMsg.created_at,
+                      unread_count: shouldIncrementUnread ? (c.unread_count || 0) + 1 : (c.unread_count || 0),
+                    }
+                  : c
+              )
+              .sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime())
         );
     })
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations' }, (payload) => {
@@ -483,6 +502,14 @@ const LiveChat: React.FC = () => {
         supabase.removeChannel(channel);
     };
   }, [fetchConversations, activeChatId, mergeIncomingMessage]);
+
+  // When user opens a chat, consider it "viewed" and clear its unread badge.
+  useEffect(() => {
+    if (!activeChatId) return;
+    setConversations((prev) =>
+      prev.map((c) => (c.id === activeChatId ? { ...c, unread_count: 0 } : c))
+    );
+  }, [activeChatId]);
 
   // Realtime sync: keep lead status/details in sync with other screens (e.g. Leads Kanban)
   useEffect(() => {
@@ -1118,6 +1145,8 @@ const LiveChat: React.FC = () => {
                 const lead = conv.lead;
                 if (!lead) return null;
                 const isSelected = activeChatId === conv.id;
+                const unread = conv.unread_count || 0;
+                const unreadLabel = unread > 9 ? '9+' : String(unread);
                 
                 return (
                   <div 
@@ -1128,20 +1157,23 @@ const LiveChat: React.FC = () => {
                     <div className="flex items-center gap-3">
                       <div className="relative">
                         <img src={lead.avatar_url || DEFAULT_AVATAR_URL} alt={lead.name} className="w-10 h-10 rounded-full object-cover" />
-                        {conv.unread_count > 0 && (
-                          <div className="absolute -top-1 -right-1 w-5 h-5 bg-secondary text-white text-xs font-bold rounded-full flex items-center justify-center border-2 border-white dark:border-gray-900">
-                            {conv.unread_count}
-                          </div>
-                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start mb-1">
                           <h3 className={`text-sm font-semibold truncate ${isSelected ? 'text-primary dark:text-secondary' : 'text-gray-800 dark:text-gray-200'}`}>
                             {lead.name || lead.phone}
                           </h3>
-                          <span className="text-xs text-gray-400 whitespace-nowrap">
-                            {new Date(conv.last_message_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                          </span>
+                          <div className="flex items-center gap-2 whitespace-nowrap">
+                            {unread > 0 && !isSelected && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-bold">
+                                <Bell className="w-3 h-3" />
+                                {unreadLabel}
+                              </span>
+                            )}
+                            <span className="text-xs text-gray-400">
+                              {new Date(conv.last_message_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            </span>
+                          </div>
                         </div>
                         <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{conv.last_message || 'Clique para ver o histórico'}</p>
                       </div>
