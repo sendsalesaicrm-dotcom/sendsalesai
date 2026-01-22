@@ -61,6 +61,7 @@ serve(async (req) => {
         content: string;
         timestamp: string;
         external_id: string | null;
+        lid_jid?: string | null;
         instanceName?: string;
         raw?: any;
         media_type?: string | null;
@@ -91,6 +92,7 @@ serve(async (req) => {
 
       const getEvolutionPhoneFromItem = (item: any): {
         phone: string;
+        lidJid?: string;
         dropReason?: string;
         rawJid?: string;
       } => {
@@ -128,9 +130,9 @@ serve(async (req) => {
         if (primaryJid.toLowerCase().endsWith('@lid')) {
           if (altJid && altJid.includes('@')) {
             const phone = normalizePhone(stripJid(altJid));
-            return { phone, rawJid: altJid };
+            return { phone, lidJid: primaryJid, rawJid: altJid };
           }
-          return { phone: '', dropReason: 'lid_without_remoteJidAlt', rawJid: primaryJid };
+          return { phone: '', lidJid: primaryJid, dropReason: 'lid_without_remoteJidAlt', rawJid: primaryJid };
         }
 
         // senderPn sometimes comes as digits only.
@@ -143,6 +145,118 @@ serve(async (req) => {
         }
 
         return { phone: '', dropReason: 'missing_phone', rawJid: primaryJid || altJid };
+      };
+
+      const parseEvolutionItemToMessage = (item: any): {
+        content: string;
+        external_id: string | null;
+        timestamp: string;
+        media_type?: string | null;
+        media_url?: string | null;
+        mime_type?: string | null;
+        file_name?: string | null;
+        caption?: string | null;
+      } | null => {
+        const msgContainer = item?.message || item?.data?.message;
+        const msgContent = msgContainer?.message || msgContainer;
+        if (!msgContent) return null;
+
+        const extractMedia = (mc: any) => {
+          const image = mc?.imageMessage;
+          const video = mc?.videoMessage;
+          const doc = mc?.documentMessage;
+          const audio = mc?.audioMessage;
+
+          const pickUrl = (m: any): string | null => {
+            const url = m?.url || m?.mediaUrl || m?.media_url;
+            if (typeof url === 'string' && url.trim()) return url;
+            return null;
+          };
+
+          if (image) {
+            return {
+              media_type: 'image',
+              media_url: pickUrl(image),
+              mime_type: image?.mimetype || image?.mimeType || null,
+              file_name: image?.fileName || image?.filename || null,
+              caption: image?.caption || null,
+            };
+          }
+          if (video) {
+            return {
+              media_type: 'video',
+              media_url: pickUrl(video),
+              mime_type: video?.mimetype || video?.mimeType || null,
+              file_name: video?.fileName || video?.filename || null,
+              caption: video?.caption || null,
+            };
+          }
+          if (doc) {
+            return {
+              media_type: 'document',
+              media_url: pickUrl(doc),
+              mime_type: doc?.mimetype || doc?.mimeType || null,
+              file_name: doc?.fileName || doc?.filename || null,
+              caption: doc?.caption || null,
+            };
+          }
+          if (audio) {
+            return {
+              media_type: 'audio',
+              media_url: pickUrl(audio),
+              mime_type: audio?.mimetype || audio?.mimeType || null,
+              file_name: audio?.fileName || audio?.filename || null,
+              caption: null,
+            };
+          }
+          return {
+            media_type: null,
+            media_url: null,
+            mime_type: null,
+            file_name: null,
+            caption: null,
+          };
+        };
+
+        const media = extractMedia(msgContent);
+        const content =
+          msgContent.conversation ||
+          msgContent.extendedTextMessage?.text ||
+          media.caption ||
+          (media.media_type ? 'Mídia' : "[Mensagem Complexa/Mídia]");
+        if (!content) return null;
+
+        const external_id = getEvolutionExternalId(item);
+
+        const tsRaw =
+          item?.createdAt ||
+          item?.created_at ||
+          item?.timestamp ||
+          item?.messageTimestamp ||
+          item?.message?.messageTimestamp ||
+          msgContainer?.messageTimestamp ||
+          msgContent?.messageTimestamp;
+
+        let timestamp = nowIso;
+        if (typeof tsRaw === 'string') {
+          const d = new Date(tsRaw);
+          if (!Number.isNaN(d.getTime())) timestamp = d.toISOString();
+        } else if (typeof tsRaw === 'number' && Number.isFinite(tsRaw)) {
+          const ms = tsRaw > 10_000_000_000 ? tsRaw : tsRaw * 1000;
+          const d = new Date(ms);
+          if (!Number.isNaN(d.getTime())) timestamp = d.toISOString();
+        }
+
+        return {
+          content,
+          external_id,
+          timestamp,
+          media_type: media.media_type,
+          media_url: media.media_url,
+          mime_type: media.mime_type,
+          file_name: media.file_name,
+          caption: media.caption,
+        };
       };
 
       const getEvolutionExternalId = (raw: any): string | null => {
@@ -376,6 +490,7 @@ serve(async (req) => {
               content,
               timestamp,
               external_id,
+              lid_jid: resolved.lidJid || null,
               instanceName: itemInstanceName,
               raw: item,
               media_type: media.media_type,
@@ -473,6 +588,8 @@ serve(async (req) => {
         return new Response("OK", { status: 200, headers: corsHeaders });
       }
 
+      const backfilledLids = new Set<string>();
+
       for (const msg of incoming) {
         const phone = msg.phone;
         const content = msg.content;
@@ -514,6 +631,98 @@ serve(async (req) => {
         }
 
         if (!leadId) continue;
+
+        // Backfill: if Evolution is using LID addressing, the first message sometimes arrives
+        // without remoteJidAlt (phone). Once we receive a later message that includes
+        // remoteJidAlt, we can attach any previously dropped LID-only messages to this lead.
+        if (provider === 'evolution' && msg.lid_jid) {
+          const lidJid = String(msg.lid_jid || '').trim();
+          if (lidJid && !backfilledLids.has(lidJid)) {
+            backfilledLids.add(lidJid);
+            // Best-effort: fetch previously logged LID-only items and insert them now.
+            // Idempotent via conversations (provider, external_id).
+            try {
+              const qBase = () =>
+                supabase
+                  .from('whatsapp_webhook_events')
+                  .select('id,payload')
+                  .eq('provider', 'evolution')
+                  .eq('drop_reason', 'lid_without_remoteJidAlt')
+                  .limit(50);
+
+              const [q1, q2] = await Promise.all([
+                qBase().contains('payload', { key: { remoteJid: lidJid } }),
+                qBase().contains('payload', { data: { key: { remoteJid: lidJid } } }),
+              ]);
+
+              const seen = new Set<string>();
+              const items: any[] = [];
+              for (const row of [...(q1.data || []), ...(q2.data || [])]) {
+                const id = String((row as any)?.id || '');
+                if (!id || seen.has(id)) continue;
+                seen.add(id);
+                items.push((row as any)?.payload);
+              }
+
+              for (const item of items) {
+                const key = getEvolutionKey(item);
+                const fromMe = key?.fromMe === true || key?.fromMe === 'true';
+                if (fromMe) continue;
+
+                const parsed = parseEvolutionItemToMessage(item);
+                if (!parsed) continue;
+
+                const hasExternalId =
+                  typeof parsed.external_id === 'string' && parsed.external_id.trim().length > 0;
+                if (!hasExternalId) continue;
+
+                const backfillPayload: any = {
+                  lead_id: leadId,
+                  content: parsed.content,
+                  sender_type: 'contact',
+                  created_at: parsed.timestamp,
+                  provider: 'evolution',
+                  external_id: parsed.external_id,
+                  raw: item,
+                };
+
+                if (parsed.media_type) backfillPayload.media_type = parsed.media_type;
+                if (parsed.media_url) backfillPayload.media_url = parsed.media_url;
+                if (parsed.mime_type) backfillPayload.mime_type = parsed.mime_type;
+                if (parsed.file_name) backfillPayload.file_name = parsed.file_name;
+                if (parsed.caption) backfillPayload.caption = parsed.caption;
+
+                let up = await supabase
+                  .from('conversations')
+                  .upsert(backfillPayload, { onConflict: 'provider,external_id' });
+                let upErr: any = up.error;
+
+                if (upErr && backfillPayload.raw) {
+                  const msgText = String((upErr as any)?.message || '');
+                  if (msgText.includes('column') && msgText.includes('raw')) {
+                    delete backfillPayload.raw;
+                    up = await supabase
+                      .from('conversations')
+                      .upsert(backfillPayload, { onConflict: 'provider,external_id' });
+                    upErr = up.error;
+                  }
+                }
+
+                if (upErr) {
+                  const msgText = String((upErr as any)?.message || '');
+                  if (msgText.includes('no unique') || msgText.includes('ON CONFLICT')) {
+                    const ins = await supabase.from('conversations').insert(backfillPayload);
+                    upErr = ins.error;
+                  }
+                }
+
+                if (upErr) console.error('[backfillLidMessages] upsert error:', upErr);
+              }
+            } catch (e) {
+              console.error('[backfillLidMessages] error:', (e as any)?.message || e);
+            }
+          }
+        }
 
         // 2. Idempotent insert (prevents duplicates + avoids "lost" on retries)
         const payload: any = {

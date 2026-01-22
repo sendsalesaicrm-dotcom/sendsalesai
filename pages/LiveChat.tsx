@@ -625,9 +625,39 @@ const LiveChat: React.FC = () => {
           const row = payload.new as Lead;
           if (!row?.id) return;
 
-          setConversations((prev) =>
-            prev.map((c) => (c.id === row.id ? { ...c, lead: { ...(c.lead as any), ...row } } : c))
-          );
+          const leadLastAt = row.last_active || row.created_at || new Date().toISOString();
+
+          setConversations((prev) => {
+            const exists = prev.some((c) => c.id === row.id);
+            if (!exists) {
+              const newConv: Conversation = {
+                id: row.id,
+                lead_id: row.id,
+                last_message: 'Clique para ver o histórico',
+                last_message_at: leadLastAt,
+                unread_count: 0,
+                status: 'open',
+                lead: row,
+              };
+              return [newConv, ...prev].sort(
+                (a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+              );
+            }
+
+            return prev
+              .map((c) => {
+                if (c.id !== row.id) return c;
+                // Keep list ordering reactive to lead activity even if no message row arrives.
+                const shouldBumpLastAt =
+                  !!leadLastAt && new Date(leadLastAt).getTime() > new Date(c.last_message_at).getTime();
+                return {
+                  ...c,
+                  lead: { ...(c.lead as any), ...row },
+                  last_message_at: shouldBumpLastAt ? leadLastAt : c.last_message_at,
+                };
+              })
+              .sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime());
+          });
           setActiveLead((prev) => (prev?.id === row.id ? { ...prev, ...row } : prev));
         }
       )
